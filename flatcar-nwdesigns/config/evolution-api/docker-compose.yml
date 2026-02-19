@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  evolution-api:
+    image: atendai/evolution-api:latest
+    container_name: evolution_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Server configuration
+      - SERVER_URL=https://evolution.nwdesigns.it
+
+      # Authentication
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+
+      # Database (PostgreSQL)
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:${POSTGRES_PASSWORD}@evolution_postgres:5432/evolution
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+
+      # Redis for caching
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://evolution_redis:6379/0
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - CACHE_REDIS_SAVE_INSTANCES=false
+      - CACHE_LOCAL_ENABLED=false
+
+      # Webhook configuration
+      - WEBHOOK_GLOBAL_ENABLED=false
+      - WEBHOOK_GLOBAL_URL=
+      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=false
+
+      # QR Code settings
+      - QRCODE_LIMIT=30
+      - QRCODE_COLOR=#198754
+
+      # Instance settings
+      - DEL_INSTANCE=false
+      - DEL_TEMP_INSTANCES=true
+
+      # WhatsApp version (fix for connection issues)
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1015901307
+      - CONFIG_SESSION_PHONE_CLIENT=Evolution API
+
+      # Logging
+      - LOG_LEVEL=DEBUG
+      - LOG_COLOR=true
+      - LOG_BAILEYS=info
+
+      # Clean up
+      - CLEAN_STORE_MESSAGES=true
+      - CLEAN_STORE_MESSAGE_UP=true
+      - CLEAN_STORE_CONTACTS=true
+      - CLEAN_STORE_CHATS=true
+
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    networks:
+      - traefik-public
+      - evolution-internal
+    depends_on:
+      - postgres
+      - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.evolution.rule=Host(`evolution.nwdesigns.it`)"
+      - "traefik.http.routers.evolution.entrypoints=web"
+      - "traefik.http.routers.evolution.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.services.evolution.loadbalancer.server.port=8080"
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: evolution_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=evolution
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - evolution-internal
+
+  redis:
+    image: redis:7-alpine
+    container_name: evolution_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - evolution-internal
+
+volumes:
+  evolution_instances:
+    external: true
+    name: evolution_evolution_instances
+  evolution_store:
+    external: true
+    name: evolution_evolution_store
+  postgres_data:
+    external: true
+    name: evolution_postgres_data
+  redis_data:
+    external: true
+    name: evolution_redis_data
+
+networks:
+  traefik-public:
+    external: true
+  evolution-internal:
+    driver: bridge

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  portainer:
+    image: portainer/portainer-ce:2.20.3
+    container_name: portainer
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "9443:9443"
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - traefik-public
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.nwdesigns.it`)"
+      - "traefik.http.routers.portainer.entrypoints=web"
+      - "traefik.http.routers.portainer.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+
+volumes:
+  portainer_data:
+    driver: local
+
+networks:
+  traefik-public:
+    external: true
