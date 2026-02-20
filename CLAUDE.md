@@ -36,6 +36,7 @@
 | Dataset | Used | Avail | Quota | Mountpoint |
 |---------|------|-------|-------|------------|
 | storage | 1.32 TB | 1.32 TB | none | /storage |
+| storage/homelab-sync | — | 300 GB | 300 GB | /storage/homelab-sync |
 | storage/pbs | 235 GB | 265 GB | 500 GB | /storage/pbs |
 | storage/proxmox | 24 KB | 1.32 TB | none | /storage/proxmox |
 | storage/timemachine | 1.09 TB | 1.32 TB | 2.5 TB | /timemachine |
@@ -53,6 +54,7 @@
 | VMID | Host Path | Guest Mountpoint |
 |------|-----------|------------------|
 | 101 | /storage/pbs | /mnt/datastore |
+| 101 | /storage/homelab-sync | /mnt/homelab-sync |
 | 102 | /timemachine | /timemachine |
 
 ### Guest Tags
@@ -128,7 +130,7 @@ ssh root@10.21.21.99 "qm start <VMID>"              # Start VM
 ssh root@10.21.21.99 "pvesh get /cluster/backup --output-format json-pretty"  # Job config
 ssh root@10.21.21.99 "pvesm list pbs-nwlab"                                   # List backups
 ssh root@10.21.21.99 "vzdump <VMID> --storage pbs-nwlab --mode snapshot --compress zstd"  # Manual backup
-ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs"          # PBS quota
+ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/homelab-sync"  # PBS quotas
 ```
 
 ## Warnings
@@ -137,18 +139,19 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs"          # 
 - **Host RAM pressure**: 85% used (6.5/7.6 GiB), 1.9 GiB swapped. VM 104 alone takes 4 GiB.
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 - **ZFS USB disk errors**: `usb-External_USB3.0_20170331000D1` has 4 read / 8 checksum errors. Last scrub repaired 21K. Monitor via `zpool status storage`. Consider replacing.
-- **Orphaned backups**: 9 backups for deleted VMID 103 on PBS. Consider pruning to reclaim space.
 - **Stale PBS self-backup**: Last LXC 101 backup is from 2025-10-06 (4+ months old, not in backup job).
 - **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
+- **PBS sync-job list display bug**: Push sync jobs exist in config (`/etc/proxmox-backup/sync.cfg`) but `sync-job list` returns empty. This is a PBS 4.x display bug — jobs still execute on schedule. Verify via `cat /etc/proxmox-backup/sync.cfg`.
 
 ## Backup Strategy
 - **PBS** (LXC 101 @ 10.21.21.101): Proxmox Backup Server
-- **Datastore**: `home-backup` at `/mnt/datastore` (bind mount from host `/storage/pbs`)
-- **PVE storage**: `pbs-nwlab` (auth: `root@pam`)
 - **Web UI**: https://10.21.21.101:8007
+- **PVE storage**: `pbs-nwlab` (auth: `root@pam`)
+- **Datastores**:
+  - `home-backup` — nwlab local backups (`/mnt/datastore`, `storage/pbs`, 500 GB quota)
+  - `homelab-sync` — incoming homelab syncs (`/mnt/homelab-sync`, `storage/homelab-sync`, 300 GB quota)
 - **Job**: `nwlab-daily` — LXC 100, 102 + VM 104 @ 01:00, snapshot mode, zstd
-- **Retention**: 7 daily, 4 weekly, 2 monthly (PVE prune + PBS prune job)
+- **Retention**: 7 daily, 4 weekly, 2 monthly (PVE prune + PBS prune job on `home-backup`)
 - **GC**: daily @ 03:00
-- **ZFS quota**: 500 GB (`storage/pbs`)
-- **Remote sync**: `nwlab-to-homelab` push job @ 04:00 → homelab PBS (`pbs-backups` @ 10.0.0.6 via WG)
+- **Remote sync**: `nwlab-to-homelab` push job @ 04:00 → homelab PBS (`nwlab-backup` @ 10.0.0.6 via WG)
 - **Full docs**: [`docs/backups.md`](docs/backups.md)
