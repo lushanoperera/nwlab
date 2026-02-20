@@ -22,9 +22,9 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 │  └──────────┘  └──────────┘  └──────────┘                   │
 │                                                              │
 │  ┌──────────────────────────────┐                            │
-│  │ Flatcar VM 104  [CRITICAL]   │                            │
-│  │ .104 │ disk: 100% FULL       │                            │
-│  │ Docker 28.0.4 (HUNG)         │                            │
+│  │ Flatcar VM 104               │                            │
+│  │ .104 │ disk: 25% (28.5 GB)   │                            │
+│  │ Docker 28.0.4 (11 running)   │                            │
 │  │ 11 containers / 6 stacks:    │                            │
 │  │  Traefik, Cloudflared,       │                            │
 │  │  CrowdSec, Vaultwarden,      │                            │
@@ -190,7 +190,7 @@ Each VM/LXC that needs configuration management gets its own subdirectory with a
 
 ## Known Issues
 
-1. **VM 104 root disk FULL** — Root filesystem at 100% (5.8 GB partition). Docker daemon hung, all 11 containers down. Needs disk expansion and cleanup immediately.
+1. ~~**VM 104 root disk FULL**~~ — **RESOLVED** (2026-02-20). Expanded from 8.5 GB to 28.5 GB. Now 25% used, Docker running normally.
 2. **VM 101 disk at 89%** — PBS LXC root disk approaching capacity. Monitor and plan expansion.
 3. **Host RAM under pressure** — 85% used (6.5/7.6 GB), 1.9 GB swapped. VM 104 alone uses 4 GB.
 4. **Pending kernel update** — Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.

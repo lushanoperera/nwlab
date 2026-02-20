@@ -10,7 +10,7 @@
 | **Docker Compose** | v2.27.0 (`/opt/bin/docker-compose`) |
 | **CPU** | 2 cores (1 socket, q35 machine) |
 | **RAM** | 4096 MB (no swap configured) |
-| **Disk** | 8.5 GB on local-lvm (EFI 4M + root 5.8 GB partition) |
+| **Disk** | 28.5 GB on local-lvm (EFI 4M + root 26.2 GB partition) |
 | **BIOS** | OVMF (UEFI) |
 | **Network** | virtio on vmbr0 |
 | **Ignition** | `/var/lib/vz/snippets/flatcar-104.ign` (on PVE host) |
@@ -139,27 +139,15 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 
 ## Known Issues (as of 2026-02-20)
 
-### Root Disk 100% Full
-- `/dev/sda9` (5.8 GB partition) is completely full. Docker daemon is hung and all services are down.
-- Load average ~10 on 2 cores (sustained overload).
-- **Immediate fix**:
-  ```bash
-  # From Proxmox host — expand virtual disk
-  ssh root@10.21.21.99 "qm resize 104 scsi0 +20G"
-  # Inside VM — free space for Docker to recover
-  sudo journalctl --vacuum-size=50M
-  sudo truncate -s 0 /var/log/*.log
-  # After Docker recovers
-  sudo docker system prune -a
-  ```
+### Root Disk — RESOLVED
+- Disk was 100% full (5.8 GB partition on 8.5 GB vdisk), Docker hung.
+- **Fixed**: Expanded to 28.5 GB via `qm resize 104 scsi0 +20G`, grew partition with `sgdisk`, `resize2fs`. Now 25% used (18 GB free).
 
-### Memory Exhaustion
-- 3.8 GB total, ~40 MB available, no swap configured.
-- 11 containers (incl. 2 PostgreSQL + Redis) compete for RAM.
-- **Fix**: Add swap or increase VM RAM beyond 4 GB.
+### No Swap Configured
+- 3.8 GB RAM total, no swap. Under heavy load, OOM kills are possible.
+- **Recommendation**: Add 2+ GB swap or increase VM RAM beyond 4 GB.
 
-### Recommendations
-- Expand VM disk to 30+ GB to give Docker breathing room
-- Move Docker data dir to a secondary disk backed by ZFS (`proxmox-storage` has 1.32 TB free)
-- Add 2+ GB swap as safety net
-- Consider separating databases to a dedicated VM or using the ZFS pool for persistent volumes
+### Other Recommendations
+- Monitor Docker data growth — `docker system df` to check image/volume sizes
+- Consider moving Docker data dir to ZFS-backed storage if data grows beyond 20 GB
+- Consider separating databases to a dedicated VM for larger workloads

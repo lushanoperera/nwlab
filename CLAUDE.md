@@ -47,7 +47,7 @@
 | 100 | LXC | wireguard | 10.21.21.100 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 71% |
 | 101 | LXC | proxmox-backup-server | 10.21.21.101 | running | 4 | 512 MB | 10 GB | local-lvm | yes | 89% |
 | 102 | LXC | timemachine-samba | 10.21.21.102 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 26% |
-| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB | 8.5 GB | local-lvm | yes | 100% |
+| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB | 28.5 GB | local-lvm | yes | 25% |
 
 ### Guest Bind Mounts
 | VMID | Host Path | Guest Mountpoint |
@@ -132,7 +132,7 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs"          # 
 ```
 
 ## Warnings
-- **VM 104 root disk FULL**: Root filesystem at 100% (5.8 GB partition on 8.5 GB vdisk). Docker daemon hung, all services down. Needs immediate disk expansion (`qm resize 104 scsi0 +20G`) and cleanup.
+- **VM 104 disk expanded**: Root disk expanded from 8.5 GB to 28.5 GB (2026-02-20). Now at 25% usage. Docker recovered, all 11 containers running.
 - **VM 101 disk at 89%**: PBS LXC root disk approaching capacity. Monitor and consider expanding.
 - **Host RAM pressure**: 85% used (6.5/7.6 GiB), 1.9 GiB swapped. VM 104 alone takes 4 GiB.
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
