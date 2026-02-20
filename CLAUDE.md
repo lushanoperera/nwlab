@@ -7,7 +7,7 @@
 - **Location**: NWDesigns office
 - **PVE Version**: 9.1.5 (running kernel 6.17.4-1-pve, 6.17.9-1-pve installed — reboot pending)
 - **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz)
-- **RAM**: 7.6 GB (85% used, 1.9 GiB swapped — under pressure)
+- **RAM**: 7.6 GB (91% used, 3.2 GiB swapped — under pressure)
 - **SSH**: `ssh root@10.21.21.99`
 
 ## Network
@@ -45,10 +45,10 @@
 
 | VMID | Type | Name | IP | Status | Cores | RAM | Disk | Storage | Autostart | Disk Used |
 |------|------|------|----|--------|-------|-----|------|---------|-----------|-----------|
-| 100 | LXC | wireguard | 10.21.21.100 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 71% |
-| 101 | LXC | proxmox-backup-server | 10.21.21.101 | running | 4 | 512 MB | 10 GB | local-lvm | yes | 89% |
-| 102 | LXC | timemachine-samba | 10.21.21.102 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 26% |
-| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB | 28.5 GB | local-lvm | yes | 25% |
+| 100 | LXC | wireguard | 10.21.21.100 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 46% |
+| 101 | LXC | proxmox-backup-server | 10.21.21.101 | running | 2 | 512 MB | 10 GB | local-lvm | yes | 39% |
+| 102 | LXC | timemachine-samba | 10.21.21.102 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 14% |
+| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB | 28.5 GB | local-lvm | yes | 33% |
 
 ### Guest Bind Mounts
 | VMID | Host Path | Guest Mountpoint |
@@ -134,14 +134,14 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 ```
 
 ## Warnings
-- **VM 104 disk expanded**: Root disk expanded from 8.5 GB to 28.5 GB (2026-02-20). Now at 25% usage. Docker recovered, all 11 containers running.
-- **VM 101 disk at 89%**: PBS LXC root disk approaching capacity. Monitor and consider expanding.
-- **Host RAM pressure**: 85% used (6.5/7.6 GiB), 1.9 GiB swapped. VM 104 alone takes 4 GiB.
+- **VM 104 disk expanded**: Root disk expanded from 8.5 GB to 28.5 GB (2026-02-20). Now at 33% usage. Docker recovered, all 11 containers running.
+- ~~**LXC 101 disk at 89%**~~: **RESOLVED** — now at 39%. No longer at risk.
+- **Host RAM pressure**: 91% used (6.9/7.6 GiB), 3.2 GiB swapped. VM 104 alone takes 4 GiB. Pressure worsening.
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 - **ZFS USB disk errors**: `usb-External_USB3.0_20170331000D1` has 4 read / 8 checksum errors. Last scrub repaired 21K. Monitor via `zpool status storage`. Consider replacing.
-- **Stale PBS self-backup**: Last LXC 101 backup is from 2025-10-06 (4+ months old, not in backup job).
+- **Stale PBS self-backup**: Last LXC 101 backup is from 2025-09-29 (5+ months old, not in backup job).
 - **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
-- **PBS sync-job list display bug**: Push sync jobs exist in config (`/etc/proxmox-backup/sync.cfg`) but `sync-job list` returns empty. This is a PBS 4.x display bug — jobs still execute on schedule. Verify via `cat /etc/proxmox-backup/sync.cfg`.
+- **PBS sync job missing**: The `nwlab-to-homelab` push sync job is not configured — `/etc/proxmox-backup/sync.cfg` does not exist. Needs recreation once homelab creates the `nwlab-backup` datastore.
 
 ## Backup Strategy
 - **PBS** (LXC 101 @ 10.21.21.101): Proxmox Backup Server
@@ -153,5 +153,5 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 - **Job**: `nwlab-daily` — LXC 100, 102 + VM 104 @ 01:00, snapshot mode, zstd
 - **Retention**: 7 daily, 4 weekly, 2 monthly (PVE prune + PBS prune job on `home-backup`)
 - **GC**: daily @ 03:00
-- **Remote sync**: `nwlab-to-homelab` push job @ 04:00 → homelab PBS (`nwlab-backup` @ 10.0.0.6 via WG)
+- **Remote sync**: `nwlab-to-homelab` push job — **not yet configured** (needs recreation once homelab creates `nwlab-backup` datastore)
 - **Full docs**: [`docs/backups.md`](docs/backups.md)

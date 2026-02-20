@@ -10,7 +10,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 ┌──────────────────────────────────────────────────────────────┐
 │  thinkpad (10.21.21.99) — Proxmox VE 9.1.5                  │
 │  Kernel: 6.17.4-1-pve (6.17.9 installed, reboot pending)    │
-│  RAM: 7.6 GB (85% used) │ Swap: 11 GB (1.9 GB used)        │
+│  RAM: 7.6 GB (91% used) │ Swap: 11 GB (3.2 GB used)        │
 │  Uptime: 60+ days                                            │
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
@@ -18,12 +18,12 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 │  │ LXC 100  │  │ LXC 101  │  │ LXC 102  │                   │
 │  │ .100     │  │ .101     │  │ .102      │                   │
 │  │ VPN      │  │ Backups  │  │ Samba/TM  │                   │
-│  │ disk: 71%│  │ disk: 89%│  │ disk: 26% │                   │
+│  │ disk: 46%│  │ disk: 39%│  │ disk: 14% │                   │
 │  └──────────┘  └──────────┘  └──────────┘                   │
 │                                                              │
 │  ┌──────────────────────────────┐                            │
 │  │ Flatcar VM 104               │                            │
-│  │ .104 │ disk: 25% (28.5 GB)   │                            │
+│  │ .104 │ disk: 33% (28.5 GB)   │                            │
 │  │ Docker 28.0.4 (11 running)   │                            │
 │  │ 11 containers / 6 stacks:    │                            │
 │  │  Traefik, Cloudflared,       │                            │
@@ -43,7 +43,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 |-----------|------|-------------|
 | Model | Lenovo ThinkPad (i5-6200U) | 60+ days uptime |
 | CPU | 2 cores / 4 threads @ 2.30 GHz | Load avg: 2.18 |
-| RAM | 7.6 GB + 11 GB swap (3.8 GB zram + 7.6 GB LVM) | 85% used, 1.9 GB swapped |
+| RAM | 7.6 GB + 11 GB swap (3.8 GB zram + 7.6 GB LVM) | 91% used, 3.2 GB swapped |
 | Boot disk | 238.5 GB SSD (LVM: root + swap + thinpool) | root 44%, thinpool 18% |
 | Data disks | 2x 2.7 TB in ZFS mirror (`storage` pool) | 48% capacity, 35% frag |
 
@@ -129,7 +129,7 @@ Pool `storage` — two disks in mirror (one is USB-attached, has 4 read / 8 chec
 
 - **Daily @ 01:00**: vzdump snapshots of LXC 100, 102 + VM 104 to PBS (`pbs-nwlab`)
 - **GC @ 03:00**: PBS garbage collection
-- **Remote sync @ 04:00**: Push to homelab PBS (`pbs-backups` @ 10.0.0.6 via WireGuard)
+- **Remote sync**: Push to homelab PBS — **not yet configured** (needs recreation once homelab creates `nwlab-backup` datastore)
 - **Retention**: 7 daily / 4 weekly / 2 monthly
 - **Full docs**: [docs/backups.md](docs/backups.md)
 
@@ -190,15 +190,15 @@ Each VM/LXC that needs configuration management gets its own subdirectory with a
 
 ## Known Issues
 
-1. ~~**VM 104 root disk FULL**~~ — **RESOLVED** (2026-02-20). Expanded from 8.5 GB to 28.5 GB. Now 25% used, Docker running normally.
-2. **VM 101 disk at 89%** — PBS LXC root disk approaching capacity. Monitor and plan expansion.
-3. **Host RAM under pressure** — 85% used (6.5/7.6 GB), 1.9 GB swapped. VM 104 alone uses 4 GB.
+1. ~~**VM 104 root disk FULL**~~ — **RESOLVED** (2026-02-20). Expanded from 8.5 GB to 28.5 GB. Now 33% used, Docker running normally.
+2. ~~**LXC 101 disk at 89%**~~ — **RESOLVED**. Now at 39%, no longer at risk.
+3. **Host RAM under pressure** — 91% used (6.9/7.6 GB), 3.2 GB swapped. VM 104 alone uses 4 GB. Pressure worsening.
 4. **Pending kernel update** — Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 5. **ZFS USB disk errors** — The USB-attached disk in the mirror pool has 4 read / 8 checksum errors. Plan replacement.
 6. **Orphaned backups** — 9 backups for deleted VMID 103 on PBS. Should be pruned.
-7. **Stale PBS self-backup** — Last LXC 101 backup is from 2025-10-06 (4+ months old).
+7. **Stale PBS self-backup** — Last LXC 101 backup is from 2025-09-29 (5+ months old).
 8. **PVE firewall disabled** — Service running but policy disabled. No active rules.
 
 ---
 
-*Last audited: 2026-02-20 via live SSH*
+*Last audited: 2026-02-21 via live SSH*

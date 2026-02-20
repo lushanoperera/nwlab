@@ -57,7 +57,7 @@ This prevents VMID collisions (both environments use 100-104) and ensures nwlab'
 
 **Not backed up**: LXC 101 (PBS itself) — it's the backup server; restore from PBS ISO + config.
 
-> **Warning**: The last manual backup of LXC 101 is from **2025-10-06** (4+ months stale). It is not included in the `nwlab-daily` job. Consider periodic manual backups or a separate job.
+> **Warning**: The last manual backup of LXC 101 is from **2025-09-29** (5+ months stale). It is not included in the `nwlab-daily` job. Consider periodic manual backups or a separate job.
 
 ## Retention Policy
 
@@ -88,6 +88,9 @@ Retention applies only to `home-backup` (nwlab's own backups). The `homelab-sync
 
 ## Remote Sync (nwlab → homelab)
 
+> **Status**: The `nwlab-to-homelab` push sync job is **not yet configured**. The sync config file (`/etc/proxmox-backup/sync.cfg`) does not exist on PBS LXC 101. This job needs to be created once the homelab creates the `nwlab-backup` datastore.
+
+**Planned configuration** (to be created):
 - **Sync job**: `nwlab-to-homelab` (push direction)
 - **Source datastore**: `home-backup`
 - **Remote name**: `homelab-pbs`
@@ -97,7 +100,7 @@ Retention applies only to `home-backup` (nwlab's own backups). The `homelab-sync
 - **Schedule**: daily at 04:00
 - **remove-vanished**: false (safe — won't delete remote-only backups)
 
-> **Note**: The sync job pushes only nwlab's backup groups (ct/100, ct/101, ct/102, vm/104) to homelab's dedicated `nwlab-backup` datastore.
+> **Note**: The sync job will push only nwlab's backup groups (ct/100, ct/101, ct/102, vm/104) to homelab's dedicated `nwlab-backup` datastore.
 
 ## VPN Routing
 

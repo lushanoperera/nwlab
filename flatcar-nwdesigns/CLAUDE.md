@@ -142,7 +142,7 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 
 ### Root Disk — RESOLVED
 - Disk was 100% full (5.8 GB partition on 8.5 GB vdisk), Docker hung.
-- **Fixed**: Expanded to 28.5 GB via `qm resize 104 scsi0 +20G`, grew partition with `sgdisk`, `resize2fs`. Now 25% used (18 GB free).
+- **Fixed**: Expanded to 28.5 GB via `qm resize 104 scsi0 +20G`, grew partition with `sgdisk`, `resize2fs`. Now 33% used (16 GB free).
 
 ### Swap Added — RESOLVED
 - 2 GB swap file at `/swapfile`, persistent via `/etc/fstab`.
