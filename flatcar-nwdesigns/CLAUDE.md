@@ -1,5 +1,20 @@
 # Flatcar Linux VM - Docker Services
 
+## VM Specs
+| Property | Value |
+|----------|-------|
+| **VMID** | 104 |
+| **OS** | Flatcar Container Linux 4459.2.3 (Oklo) |
+| **Kernel** | 6.12.66-flatcar |
+| **Docker** | 28.0.4 |
+| **Docker Compose** | v2.27.0 (`/opt/bin/docker-compose`) |
+| **CPU** | 2 cores (1 socket, q35 machine) |
+| **RAM** | 4096 MB (no swap configured) |
+| **Disk** | 8.5 GB on local-lvm (EFI 4M + root 5.8 GB partition) |
+| **BIOS** | OVMF (UEFI) |
+| **Network** | virtio on vmbr0 |
+| **Ignition** | `/var/lib/vz/snippets/flatcar-104.ign` (on PVE host) |
+
 ## VM Connection
 ```bash
 ssh core@10.21.21.104
@@ -10,7 +25,7 @@ ssh core@10.21.21.104
 Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bouncer → Services
 ```
 
-## Services
+## Services (11 containers, 6 stacks)
 | Service | Internal Port | Public URL |
 |---------|---------------|------------|
 | Vaultwarden | 80 | https://vaultwarden.nwdesigns.it |
@@ -18,6 +33,8 @@ Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bo
 | Evolution API | 8080 | https://evolution.nwdesigns.it |
 | Portainer | 9000 | https://portainer.nwdesigns.it |
 | Traefik Dashboard | 8080 | https://traefik.nwdesigns.it |
+
+Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres, evolution_postgres, evolution_redis.
 
 ## Security
 - **CrowdSec** - Intrusion prevention system
@@ -119,3 +136,30 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 - SMTP configured via Gmail (admin@nwdesigns.it)
 - App password stored in: `/opt/vaultwarden/.env`
 - Emails sent from: `Vaultwarden <admin@nwdesigns.it>`
+
+## Known Issues (as of 2026-02-20)
+
+### Root Disk 100% Full
+- `/dev/sda9` (5.8 GB partition) is completely full. Docker daemon is hung and all services are down.
+- Load average ~10 on 2 cores (sustained overload).
+- **Immediate fix**:
+  ```bash
+  # From Proxmox host — expand virtual disk
+  ssh root@10.21.21.99 "qm resize 104 scsi0 +20G"
+  # Inside VM — free space for Docker to recover
+  sudo journalctl --vacuum-size=50M
+  sudo truncate -s 0 /var/log/*.log
+  # After Docker recovers
+  sudo docker system prune -a
+  ```
+
+### Memory Exhaustion
+- 3.8 GB total, ~40 MB available, no swap configured.
+- 11 containers (incl. 2 PostgreSQL + Redis) compete for RAM.
+- **Fix**: Add swap or increase VM RAM beyond 4 GB.
+
+### Recommendations
+- Expand VM disk to 30+ GB to give Docker breathing room
+- Move Docker data dir to a secondary disk backed by ZFS (`proxmox-storage` has 1.32 TB free)
+- Add 2+ GB swap as safety net
+- Consider separating databases to a dedicated VM or using the ZFS pool for persistent volumes

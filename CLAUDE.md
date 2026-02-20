@@ -1,13 +1,13 @@
 # NWLab - Proxmox Infrastructure
 
 ## Proxmox Host (thinkpad)
-- **Hostname**: thinkpad
+- **Hostname**: thinkpad (`thinkpad.nwdesigns.home.arpa`)
 - **IP**: 10.21.21.99
 - **Web UI**: https://10.21.21.99:8006
 - **Location**: NWDesigns office
-- **PVE Version**: 9.1.5 (kernel 6.17.4-1-pve)
+- **PVE Version**: 9.1.5 (running kernel 6.17.4-1-pve, 6.17.9-1-pve installed — reboot pending)
 - **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz)
-- **RAM**: 7.6 GB
+- **RAM**: 7.6 GB (85% used, 1.9 GiB swapped — under pressure)
 - **SSH**: `ssh root@10.21.21.99`
 
 ## Network
@@ -15,15 +15,17 @@
 - **Gateway**: `10.21.21.1`
 - **Bridge**: `vmbr0` (port: `enp0s31f6`)
 - **DNS**: 9.9.9.9, 8.8.8.8, 1.1.1.1
-- **Firewall**: disabled
+- **DNS search**: `station`
+- **Firewall**: disabled (service running, policy disabled)
 
 ## Storage
 
 | Name | Type | Size | Used | Content | Notes |
 |------|------|------|------|---------|-------|
 | local | dir | 70 GB | 44% | ISOs, backups, snippets | `/var/lib/vz` (SSD) |
-| local-lvm | LVM-thin | 142 GB | 40% | VM/LXC disks | `pve/data` thinpool (SSD) |
+| local-lvm | LVM-thin | 142 GB | 18% | VM/LXC disks | `pve/data` thinpool (SSD) |
 | proxmox-storage | ZFS pool | 1.35 TB | <1% | VM/LXC disks | `storage/proxmox` (HDD mirror) |
+| pbs-nwlab | PBS | 500 GB | 47% | backups | PBS @ 10.21.21.101 `home-backup` |
 
 ### Disks
 - **sda** (238.5 GB SSD): PVE boot, LVM (root + swap + thinpool)
@@ -31,21 +33,21 @@
   - **sdc is USB** — has read/checksum errors, monitor with `zpool status storage`
 
 ### ZFS Datasets
-| Dataset | Used | Avail | Mountpoint |
-|---------|------|-------|------------|
-| storage | 1.31 TB | 1.32 TB | /storage |
-| storage/pbs | 231 GB | 24.5 GB | /storage/pbs |
-| storage/proxmox | 1 GB | 1.32 TB | /storage/proxmox |
-| storage/timemachine | 1.09 TB | 1.32 TB | /timemachine |
+| Dataset | Used | Avail | Quota | Mountpoint |
+|---------|------|-------|-------|------------|
+| storage | 1.32 TB | 1.32 TB | none | /storage |
+| storage/pbs | 235 GB | 265 GB | 500 GB | /storage/pbs |
+| storage/proxmox | 24 KB | 1.32 TB | none | /storage/proxmox |
+| storage/timemachine | 1.09 TB | 1.32 TB | 2.5 TB | /timemachine |
 
 ## Guests
 
-| VMID | Type | Name | IP | Status | Cores | RAM | Disk | Storage | Autostart |
-|------|------|------|----|--------|-------|-----|------|---------|-----------|
-| 100 | LXC | wireguard | 10.21.21.100 | running | 1 | 512 MB | 8 GB | local-lvm | yes |
-| 101 | LXC | proxmox-backup-server | 10.21.21.101 | running | 4 | 512 MB | 10 GB | local-lvm | yes |
-| 102 | LXC | timemachine-samba | 10.21.21.102 | running | 1 | 512 MB | 8 GB | local-lvm | yes |
-| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB | 8.5 GB | local-lvm | yes |
+| VMID | Type | Name | IP | Status | Cores | RAM | Disk | Storage | Autostart | Disk Used |
+|------|------|------|----|--------|-------|-----|------|---------|-----------|-----------|
+| 100 | LXC | wireguard | 10.21.21.100 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 71% |
+| 101 | LXC | proxmox-backup-server | 10.21.21.101 | running | 4 | 512 MB | 10 GB | local-lvm | yes | 89% |
+| 102 | LXC | timemachine-samba | 10.21.21.102 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 26% |
+| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB | 8.5 GB | local-lvm | yes | 100% |
 
 ### Guest Bind Mounts
 | VMID | Host Path | Guest Mountpoint |
@@ -56,8 +58,21 @@
 ### Guest Tags
 | VMID | Tags |
 |------|------|
-| 100 | network, vpn |
-| 101 | backup |
+| 100 | community-script, network, vpn |
+| 101 | backup, community-script |
+| 102 | samba, timemachine |
+
+## Host Services
+| Service | Purpose | Notes |
+|---------|---------|-------|
+| wazuh-agent | Security monitoring (SIEM) | Reports to Wazuh manager |
+| prometheus-node-exporter | Metrics exporter | System metrics for Prometheus |
+| iperf3 | Network speed testing | Listening as a service |
+| chrony | NTP time synchronization | |
+| postfix | Local mail relay | |
+| smartmontools | Disk health monitoring | |
+| ksmtuned | Kernel same-page merging | Memory deduplication for VMs |
+| zfs-zed | ZFS event daemon | |
 
 ## Web UIs
 | Service | URL |
@@ -70,6 +85,8 @@
 nwlab/
 ├── CLAUDE.md                  # This file — infrastructure overview
 ├── README.md                  # Human-readable project documentation
+├── docs/                      # Infrastructure-wide documentation
+│   └── backups.md             # Backup architecture, schedule, restore
 ├── flatcar-nwdesigns/         # VM 104: Flatcar Docker services
 │   ├── CLAUDE.md              # VM-specific docs & commands
 │   ├── config/                # Docker Compose configs (mirror of VM)
@@ -106,15 +123,32 @@ ssh root@10.21.21.99 "pct start <VMID>"             # Start LXC
 ssh root@10.21.21.99 "pct stop <VMID>"              # Stop LXC
 ssh root@10.21.21.99 "pct enter <VMID>"             # Console into LXC
 ssh root@10.21.21.99 "qm start <VMID>"              # Start VM
+
+# Backups
+ssh root@10.21.21.99 "pvesh get /cluster/backup --output-format json-pretty"  # Job config
+ssh root@10.21.21.99 "pvesm list pbs-nwlab"                                   # List backups
+ssh root@10.21.21.99 "vzdump <VMID> --storage pbs-nwlab --mode snapshot --compress zstd"  # Manual backup
+ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs"          # PBS quota
 ```
 
 ## Warnings
-- **ZFS USB disk errors**: `usb-External_USB3.0_20170331000D1` has read/checksum errors. Monitor via `zpool status storage`. Consider replacing.
-- **PBS quota near full**: `storage/pbs` — 231 GB used, only 24.5 GB free. Review retention or expand quota.
-- **Firewall disabled**: PVE firewall is off. Rely on network-level controls or enable per-guest rules.
+- **VM 104 root disk FULL**: Root filesystem at 100% (5.8 GB partition on 8.5 GB vdisk). Docker daemon hung, all services down. Needs immediate disk expansion (`qm resize 104 scsi0 +20G`) and cleanup.
+- **VM 101 disk at 89%**: PBS LXC root disk approaching capacity. Monitor and consider expanding.
+- **Host RAM pressure**: 85% used (6.5/7.6 GiB), 1.9 GiB swapped. VM 104 alone takes 4 GiB.
+- **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
+- **ZFS USB disk errors**: `usb-External_USB3.0_20170331000D1` has 4 read / 8 checksum errors. Last scrub repaired 21K. Monitor via `zpool status storage`. Consider replacing.
+- **Orphaned backups**: 9 backups for deleted VMID 103 on PBS. Consider pruning to reclaim space.
+- **Stale PBS self-backup**: Last LXC 101 backup is from 2025-10-06 (4+ months old, not in backup job).
+- **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
 
 ## Backup Strategy
 - **PBS** (LXC 101 @ 10.21.21.101): Proxmox Backup Server
-- **Datastore**: `/mnt/datastore` (bind mount from host `/storage/pbs`)
+- **Datastore**: `home-backup` at `/mnt/datastore` (bind mount from host `/storage/pbs`)
+- **PVE storage**: `pbs-nwlab` (auth: `root@pam`)
 - **Web UI**: https://10.21.21.101:8007
-- Schedule and retention policies: configure in PBS web UI
+- **Job**: `nwlab-daily` — LXC 100, 102 + VM 104 @ 01:00, snapshot mode, zstd
+- **Retention**: 7 daily, 4 weekly, 2 monthly (PVE prune + PBS prune job)
+- **GC**: daily @ 03:00
+- **ZFS quota**: 500 GB (`storage/pbs`)
+- **Remote sync**: `nwlab-to-homelab` push job @ 04:00 → homelab PBS (`pbs-backups` @ 10.0.0.6 via WG)
+- **Full docs**: [`docs/backups.md`](docs/backups.md)

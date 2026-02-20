@@ -9,37 +9,43 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  thinkpad (10.21.21.99) — Proxmox VE 9.1.5                  │
+│  Kernel: 6.17.4-1-pve (6.17.9 installed, reboot pending)    │
+│  RAM: 7.6 GB (85% used) │ Swap: 11 GB (1.9 GB used)        │
+│  Uptime: 60+ days                                            │
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
 │  │ WireGuard│  │   PBS    │  │TimeMachine│                   │
 │  │ LXC 100  │  │ LXC 101  │  │ LXC 102  │                   │
-│  │ .100     │  │ .101     │  │ .102     │                   │
-│  │ VPN      │  │ Backups  │  │ Samba/TM │                   │
+│  │ .100     │  │ .101     │  │ .102      │                   │
+│  │ VPN      │  │ Backups  │  │ Samba/TM  │                   │
+│  │ disk: 71%│  │ disk: 89%│  │ disk: 26% │                   │
 │  └──────────┘  └──────────┘  └──────────┘                   │
 │                                                              │
-│  ┌──────────────────┐                                        │
-│  │ Flatcar VM 104   │                                        │
-│  │ .104             │                                        │
-│  │ Docker:          │                                        │
-│  │  Traefik         │                                        │
-│  │  Vaultwarden     │                                        │
-│  │  n8n             │                                        │
-│  │  Evolution API   │                                        │
-│  │  Portainer       │                                        │
-│  │  CrowdSec        │                                        │
-│  └──────────────────┘                                        │
+│  ┌──────────────────────────────┐                            │
+│  │ Flatcar VM 104  [CRITICAL]   │                            │
+│  │ .104 │ disk: 100% FULL       │                            │
+│  │ Docker 28.0.4 (HUNG)         │                            │
+│  │ 11 containers / 6 stacks:    │                            │
+│  │  Traefik, Cloudflared,       │                            │
+│  │  CrowdSec, Vaultwarden,      │                            │
+│  │  n8n, Evolution API,         │                            │
+│  │  Portainer + databases       │                            │
+│  └──────────────────────────────┘                            │
+│                                                              │
+│  Host services: wazuh-agent, prometheus-node-exporter,       │
+│  iperf3, chrony, postfix, smartmontools                      │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ## Hardware
 
-| Component | Spec |
-|-----------|------|
-| Model | Lenovo ThinkPad (i5-6200U) |
-| CPU | 2 cores / 4 threads @ 2.30 GHz |
-| RAM | 7.6 GB |
-| Boot disk | 238.5 GB SSD (LVM: root + swap + thinpool) |
-| Data disks | 2x 2.7 TB in ZFS mirror (`storage` pool) |
+| Component | Spec | Live Status |
+|-----------|------|-------------|
+| Model | Lenovo ThinkPad (i5-6200U) | 60+ days uptime |
+| CPU | 2 cores / 4 threads @ 2.30 GHz | Load avg: 2.18 |
+| RAM | 7.6 GB + 11 GB swap (3.8 GB zram + 7.6 GB LVM) | 85% used, 1.9 GB swapped |
+| Boot disk | 238.5 GB SSD (LVM: root + swap + thinpool) | root 44%, thinpool 18% |
+| Data disks | 2x 2.7 TB in ZFS mirror (`storage` pool) | 48% capacity, 35% frag |
 
 ## Network
 
@@ -54,6 +60,8 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 - **Subnet**: 10.21.21.0/24
 - **Gateway**: 10.21.21.1
 - **Bridge**: vmbr0 (physical: enp0s31f6)
+- **DNS**: 9.9.9.9, 8.8.8.8, 1.1.1.1 (search: `station`)
+- **FQDN**: `thinkpad.nwdesigns.home.arpa`
 
 ## Storage
 
@@ -64,19 +72,17 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 | /boot/efi | 1 GB | EFI partition |
 | pve-root | 70 GB (44% used) | Proxmox OS |
 | pve-swap | 7.6 GB | Swap |
-| pve-data (thinpool) | 142 GB (40% used) | VM/LXC disks |
+| pve-data (thinpool) | 142 GB (18% used) | VM/LXC disks |
 
 ### ZFS Mirror (2x 2.7 TB)
 
-Pool `storage` — two disks in mirror (one is USB-attached).
+Pool `storage` — two disks in mirror (one is USB-attached, has 4 read / 8 checksum errors).
 
-| Dataset | Used | Available | Mount | Purpose |
-|---------|------|-----------|-------|---------|
-| storage/pbs | 231 GB | 24.5 GB | /storage/pbs | PBS datastore |
-| storage/proxmox | 1 GB | 1.32 TB | /storage/proxmox | ZFS-backed VM storage |
-| storage/timemachine | 1.09 TB | 1.32 TB | /timemachine | Time Machine backups |
-
-> **Warning**: The USB disk in the mirror has read/checksum errors. Run `zpool status storage` to monitor.
+| Dataset | Used | Available | Quota | Mount | Purpose |
+|---------|------|-----------|-------|-------|---------|
+| storage/pbs | 235 GB | 265 GB | 500 GB | /storage/pbs | PBS datastore |
+| storage/proxmox | 24 KB | 1.32 TB | none | /storage/proxmox | ZFS-backed VM storage |
+| storage/timemachine | 1.09 TB | 1.32 TB | 2.5 TB | /timemachine | Time Machine backups |
 
 ## Services by Category
 
@@ -87,14 +93,25 @@ Pool `storage` — two disks in mirror (one is USB-attached).
 - **Proxmox Backup Server** (LXC 101) — VM/LXC backup with deduplication
 - **Time Machine Samba** (LXC 102) — macOS backups via SMB
 
+### Host Services
+- **wazuh-agent** — Security monitoring (SIEM)
+- **prometheus-node-exporter** — System metrics
+- **iperf3** — Network speed testing
+- **chrony** — NTP time sync
+- **postfix** — Local mail relay
+
 ### Docker Platform (Flatcar VM 104)
-- **Traefik** — Reverse proxy + Let's Encrypt
-- **Cloudflared** — Cloudflare tunnel for public access
-- **CrowdSec** — Intrusion prevention
-- **Vaultwarden** — Password manager (vaultwarden.nwdesigns.it)
-- **n8n** — Workflow automation (n8n.nwdesigns.it)
-- **Evolution API** — WhatsApp API (evolution.nwdesigns.it)
-- **Portainer** — Docker management (portainer.nwdesigns.it)
+
+11 containers across 6 stacks:
+
+| Stack | Containers | Purpose |
+|-------|-----------|---------|
+| Infrastructure | traefik, cloudflared | Reverse proxy + CF tunnel |
+| CrowdSec | crowdsec, crowdsec-bouncer | Intrusion prevention |
+| Vaultwarden | vaultwarden | Password manager |
+| n8n | n8n, n8n_postgres | Workflow automation |
+| Evolution API | evolution_api, evolution_postgres, evolution_redis | WhatsApp API |
+| Portainer | portainer | Docker management |
 
 ## Web Interfaces
 
@@ -107,6 +124,14 @@ Pool `storage` — two disks in mirror (one is USB-attached).
 | Vaultwarden | https://vaultwarden.nwdesigns.it |
 | n8n | https://n8n.nwdesigns.it |
 | Evolution API | https://evolution.nwdesigns.it |
+
+## Backup Strategy
+
+- **Daily @ 01:00**: vzdump snapshots of LXC 100, 102 + VM 104 to PBS (`pbs-nwlab`)
+- **GC @ 03:00**: PBS garbage collection
+- **Remote sync @ 04:00**: Push to homelab PBS (`pbs-backups` @ 10.0.0.6 via WireGuard)
+- **Retention**: 7 daily / 4 weekly / 2 monthly
+- **Full docs**: [docs/backups.md](docs/backups.md)
 
 ## Quick Start
 
@@ -124,6 +149,12 @@ pct stop 100     # stop it
 # Console into a container
 pct enter 101    # drop into PBS shell
 
+# SSH into Flatcar VM
+ssh core@10.21.21.104
+
+# Check Docker containers
+ssh core@10.21.21.104 "sudo docker ps"
+
 # Check ZFS health
 zpool status storage
 
@@ -139,6 +170,8 @@ nwlab/
 ├── CLAUDE.md                     # AI assistant context (full infra details)
 ├── README.md                     # This file
 ├── .gitignore
+├── docs/
+│   └── backups.md                # Backup architecture, schedule, restore
 └── flatcar-nwdesigns/            # VM 104 — Docker services
     ├── CLAUDE.md                 # VM-specific docs
     ├── config/                   # Docker Compose files (local mirror)
@@ -157,6 +190,15 @@ Each VM/LXC that needs configuration management gets its own subdirectory with a
 
 ## Known Issues
 
-1. **ZFS USB disk errors** — The USB-attached disk in the mirror pool shows read/checksum errors. Monitor closely; plan replacement.
-2. **PBS storage nearly full** — `storage/pbs` has only ~24 GB free (231/256 GB used). Review backup retention or expand the ZFS quota.
-3. **PVE firewall disabled** — No host-level firewall active. Security relies on network segmentation and per-service controls.
+1. **VM 104 root disk FULL** — Root filesystem at 100% (5.8 GB partition). Docker daemon hung, all 11 containers down. Needs disk expansion and cleanup immediately.
+2. **VM 101 disk at 89%** — PBS LXC root disk approaching capacity. Monitor and plan expansion.
+3. **Host RAM under pressure** — 85% used (6.5/7.6 GB), 1.9 GB swapped. VM 104 alone uses 4 GB.
+4. **Pending kernel update** — Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
+5. **ZFS USB disk errors** — The USB-attached disk in the mirror pool has 4 read / 8 checksum errors. Plan replacement.
+6. **Orphaned backups** — 9 backups for deleted VMID 103 on PBS. Should be pruned.
+7. **Stale PBS self-backup** — Last LXC 101 backup is from 2025-10-06 (4+ months old).
+8. **PVE firewall disabled** — Service running but policy disabled. No active rules.
+
+---
+
+*Last audited: 2026-02-20 via live SSH*
