@@ -412,6 +412,20 @@ ssh core@10.21.21.104 "sudo docker exec crowdsec cscli hub update"
 ssh core@10.21.21.104 "sudo docker exec crowdsec cscli hub upgrade"
 ```
 
+### LAPI Healthcheck
+
+CrowdSec has a healthcheck that verifies the LAPI is responsive (not just that the process is running). The bouncer uses `depends_on: service_healthy` so it only starts after LAPI is confirmed healthy — this prevents a zombie process scenario where CrowdSec appears running but LAPI is dead.
+
+```yaml
+# From docker-compose.yml
+healthcheck:
+  test: ["CMD", "cscli", "lapi", "status"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+```
+
 ### Bouncer Health Check
 
 ```bash
@@ -428,4 +442,47 @@ Add these labels to any new service's docker-compose.yml:
 ```yaml
 labels:
   - "traefik.http.routers.<service>.middlewares=crowdsec-bouncer@docker"
+```
+
+---
+
+## Autoheal
+
+**Purpose:** Monitors all containers with healthchecks and automatically restarts unhealthy ones.
+
+**Container:** `autoheal`
+
+**Stack:** Infrastructure (`/opt/infrastructure/docker-compose.yml`)
+
+### Configuration
+
+```yaml
+autoheal:
+  image: willfarrell/autoheal:latest
+  container_name: autoheal
+  restart: unless-stopped
+  mem_limit: 64m
+  environment:
+    - AUTOHEAL_CONTAINER_LABEL=all
+    - AUTOHEAL_INTERVAL=30
+    - AUTOHEAL_START_PERIOD=60
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+### How It Works
+- Checks all containers (`AUTOHEAL_CONTAINER_LABEL=all`) every 30 seconds
+- Waits 60 seconds after startup before first check (`AUTOHEAL_START_PERIOD`)
+- Restarts any container reporting `unhealthy` status
+- Requires Docker socket access (read-only)
+- No network membership needed — operates via Docker API only
+
+### Management Commands
+
+```bash
+# View autoheal logs (shows restart events)
+ssh core@10.21.21.104 "sudo docker logs autoheal -f"
+
+# Check which containers have healthchecks
+ssh core@10.21.21.104 "sudo docker ps --format '{{.Names}}: {{.Status}}' | grep -i health"
 ```

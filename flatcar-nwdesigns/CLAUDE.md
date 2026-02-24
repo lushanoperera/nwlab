@@ -139,7 +139,7 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 - App password stored in: `/opt/vaultwarden/.env`
 - Emails sent from: `Vaultwarden <admin@nwdesigns.it>`
 
-## Known Issues (as of 2026-02-20)
+## Known Issues (as of 2026-02-24)
 
 ### Root Disk — RESOLVED
 - Disk was 100% full (5.8 GB partition on 8.5 GB vdisk), Docker hung.
