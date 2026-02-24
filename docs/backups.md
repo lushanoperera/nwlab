@@ -88,19 +88,33 @@ Retention applies only to `home-backup` (nwlab's own backups). The `homelab-sync
 
 ## Remote Sync (nwlab → homelab)
 
-> **Status**: The `nwlab-to-homelab` push sync job is **not yet configured**. The sync config file (`/etc/proxmox-backup/sync.cfg`) does not exist on PBS LXC 101. This job needs to be created once the homelab creates the `nwlab-backup` datastore.
+**Status**: Operational — verified 2026-02-24. Runs daily, pushing incremental snapshots over WireGuard VPN.
 
-**Planned configuration** (to be created):
-- **Sync job**: `nwlab-to-homelab` (push direction)
-- **Source datastore**: `home-backup`
-- **Remote name**: `homelab-pbs`
-- **Remote host**: `10.0.0.6:8007` (WireGuard overlay IP)
-- **Remote datastore**: `nwlab-backup`
-- **Auth**: `root@pam` password
-- **Schedule**: daily at 04:00
-- **remove-vanished**: false (safe — won't delete remote-only backups)
+**Configuration** (`/etc/proxmox-backup/sync.cfg` on LXC 101):
 
-> **Note**: The sync job will push only nwlab's backup groups (ct/100, ct/101, ct/102, vm/104) to homelab's dedicated `nwlab-backup` datastore.
+```
+sync: nwlab-to-homelab
+  remote: homelab-pbs
+  remote-store: nwlab-backup
+  store: home-backup
+  sync-direction: push
+  remove-vanished: false
+  schedule: 04:00
+```
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| Sync job | `nwlab-to-homelab` | Push direction |
+| Source datastore | `home-backup` | nwlab local backups |
+| Remote | `homelab-pbs` → `10.0.0.6:8007` | WireGuard overlay IP |
+| Remote datastore | `nwlab-backup` | Dedicated nwlab offsite copy |
+| Auth | `root@pam` password | Stored in PBS remote config |
+| Schedule | daily @ 04:00 | After GC (03:00), after vzdump (01:00) |
+| remove-vanished | false | Safe — won't delete remote-only backups |
+
+**Synced groups**: ct/100, ct/101, ct/102, vm/104 (all backup groups in `home-backup`).
+
+> **Known quirk**: `proxmox-backup-manager sync-job list` returns `[]` even though the job exists and runs daily. This appears to be a PBS 4.x bug with push-direction sync jobs. Use `sync-job show nwlab-to-homelab` instead.
 
 ## VPN Routing
 

@@ -141,7 +141,7 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 - **ZFS USB disk errors**: `usb-External_USB3.0_20170331000D1` has 4 read / 8 checksum errors. Last scrub repaired 21K. Monitor via `zpool status storage`. Consider replacing.
 - **Stale PBS self-backup**: Last LXC 101 backup is from 2025-09-29 (5+ months old, not in backup job).
 - **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
-- **PBS sync job missing**: The `nwlab-to-homelab` push sync job is not configured — `/etc/proxmox-backup/sync.cfg` does not exist. Needs recreation once homelab creates the `nwlab-backup` datastore.
+- **PBS sync-job list bug**: `proxmox-backup-manager sync-job list` returns `[]` even though the `nwlab-to-homelab` push job exists and runs daily. Use `sync-job show nwlab-to-homelab` instead.
 
 ## Backup Strategy
 - **PBS** (LXC 101 @ 10.21.21.101): Proxmox Backup Server
@@ -153,5 +153,5 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 - **Job**: `nwlab-daily` — LXC 100, 102 + VM 104 @ 01:00, snapshot mode, zstd
 - **Retention**: 7 daily, 4 weekly, 2 monthly (PVE prune + PBS prune job on `home-backup`)
 - **GC**: daily @ 03:00
-- **Remote sync**: `nwlab-to-homelab` push job — **not yet configured** (needs recreation once homelab creates `nwlab-backup` datastore)
+- **Remote sync**: `nwlab-to-homelab` push job — daily @ 04:00, pushes `home-backup` → homelab `nwlab-backup` via WireGuard VPN
 - **Full docs**: [`docs/backups.md`](docs/backups.md)
