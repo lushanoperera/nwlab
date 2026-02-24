@@ -24,8 +24,8 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 │  ┌──────────────────────────────┐                            │
 │  │ Flatcar VM 104               │                            │
 │  │ .104 │ disk: 33% (28.5 GB)   │                            │
-│  │ Docker 28.0.4 (11 running)   │                            │
-│  │ 11 containers / 6 stacks:    │                            │
+│  │ Docker 28.0.4 (12 running)   │                            │
+│  │ 12 containers / 6 stacks:    │                            │
 │  │  Traefik, Cloudflared,       │                            │
 │  │  CrowdSec, Vaultwarden,      │                            │
 │  │  n8n, Evolution API,         │                            │
@@ -102,11 +102,11 @@ Pool `storage` — two disks in mirror (one is USB-attached, has 4 read / 8 chec
 
 ### Docker Platform (Flatcar VM 104)
 
-11 containers across 6 stacks:
+12 containers across 6 stacks:
 
 | Stack | Containers | Purpose |
 |-------|-----------|---------|
-| Infrastructure | traefik, cloudflared | Reverse proxy + CF tunnel |
+| Infrastructure | traefik, cloudflared, autoheal | Reverse proxy + CF tunnel + auto-restart |
 | CrowdSec | crowdsec, crowdsec-bouncer | Intrusion prevention |
 | Vaultwarden | vaultwarden | Password manager |
 | n8n | n8n, n8n_postgres | Workflow automation |
@@ -129,7 +129,7 @@ Pool `storage` — two disks in mirror (one is USB-attached, has 4 read / 8 chec
 
 - **Daily @ 01:00**: vzdump snapshots of LXC 100, 102 + VM 104 to PBS (`pbs-nwlab`)
 - **GC @ 03:00**: PBS garbage collection
-- **Remote sync**: Push to homelab PBS — **not yet configured** (needs recreation once homelab creates `nwlab-backup` datastore)
+- **Remote sync @ 04:00**: Push `home-backup` → homelab `nwlab-backup` via WireGuard VPN (verified 2026-02-24)
 - **Retention**: 7 daily / 4 weekly / 2 monthly
 - **Full docs**: [docs/backups.md](docs/backups.md)
 
@@ -195,10 +195,10 @@ Each VM/LXC that needs configuration management gets its own subdirectory with a
 3. **Host RAM under pressure** — 91% used (6.9/7.6 GB), 3.2 GB swapped. VM 104 alone uses 4 GB. Pressure worsening.
 4. **Pending kernel update** — Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 5. **ZFS USB disk errors** — The USB-attached disk in the mirror pool has 4 read / 8 checksum errors. Plan replacement.
-6. **Orphaned backups** — 9 backups for deleted VMID 103 on PBS. Should be pruned.
+6. ~~**Orphaned backups**~~ — **RESOLVED**. Cleaned up during datastore separation.
 7. **Stale PBS self-backup** — Last LXC 101 backup is from 2025-09-29 (5+ months old).
 8. **PVE firewall disabled** — Service running but policy disabled. No active rules.
 
 ---
 
-*Last audited: 2026-02-21 via live SSH*
+*Last audited: 2026-02-24 via live SSH*

@@ -26,7 +26,7 @@ ssh core@10.21.21.104
 Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bouncer → Services
 ```
 
-## Services (11 containers, 6 stacks)
+## Services (12 containers, 6 stacks)
 | Service | Internal Port | Public URL |
 |---------|---------------|------------|
 | Vaultwarden | 80 | https://vaultwarden.nwdesigns.it |
@@ -36,6 +36,7 @@ Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bo
 | Traefik Dashboard | 8080 | https://traefik.nwdesigns.it |
 
 Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres, evolution_postgres, evolution_redis.
+Infrastructure containers: autoheal (auto-restarts unhealthy containers every 30s).
 
 ## Security
 - **CrowdSec** - Intrusion prevention system
@@ -146,7 +147,12 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 
 ### Swap Added — RESOLVED
 - 2 GB swap file at `/swapfile`, persistent via `/etc/fstab`.
-- Provides OOM protection for the 11 containers under memory pressure.
+- Provides OOM protection for the 12 containers under memory pressure.
+
+### Resource Limits (added 2026-02-24)
+- Memory limits set on all containers (~3 GB total budget on 4 GB VM).
+- Autoheal container monitors healthchecks and restarts unhealthy containers every 30s.
+- Prevents cascade OOM failures that previously caused Docker to hang.
 
 ### Other Recommendations
 - Monitor Docker data growth — `docker system df` to check image/volume sizes

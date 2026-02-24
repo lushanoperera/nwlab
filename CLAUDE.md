@@ -134,7 +134,7 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 ```
 
 ## Warnings
-- **VM 104 disk expanded**: Root disk expanded from 8.5 GB to 28.5 GB (2026-02-20). Now at 33% usage. Docker recovered, all 11 containers running.
+- **VM 104 disk expanded**: Root disk expanded from 8.5 GB to 28.5 GB (2026-02-20). Now at 33% usage. Docker recovered, all 12 containers running.
 - ~~**LXC 101 disk at 89%**~~: **RESOLVED** — now at 39%. No longer at risk.
 - **Host RAM pressure**: 91% used (6.9/7.6 GiB), 3.2 GiB swapped. VM 104 alone takes 4 GiB. Pressure worsening.
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
