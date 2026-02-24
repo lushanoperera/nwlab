@@ -5,6 +5,7 @@ services:
     image: atendai/evolution-api:latest
     container_name: evolution_api
     restart: unless-stopped
+    mem_limit: 512m
     env_file:
       - .env
     environment:
@@ -76,6 +77,7 @@ services:
     image: postgres:15-alpine
     container_name: evolution_postgres
     restart: unless-stopped
+    mem_limit: 256m
     environment:
       - POSTGRES_USER=evolution
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -89,6 +91,7 @@ services:
     image: redis:7-alpine
     container_name: evolution_redis
     restart: unless-stopped
+    mem_limit: 128m
     volumes:
       - redis_data:/data
     networks:

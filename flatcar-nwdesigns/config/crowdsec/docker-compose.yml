@@ -5,6 +5,7 @@ services:
     image: crowdsecurity/crowdsec:latest
     container_name: crowdsec
     restart: unless-stopped
+    mem_limit: 256m
     environment:
       - GID=1000
       - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve
@@ -26,6 +27,7 @@ services:
     image: fbonalair/traefik-crowdsec-bouncer:latest
     container_name: crowdsec-bouncer
     restart: unless-stopped
+    mem_limit: 128m
     environment:
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
       - CROWDSEC_AGENT_HOST=crowdsec:8080

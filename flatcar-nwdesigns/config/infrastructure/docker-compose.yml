@@ -5,6 +5,7 @@ services:
     image: traefik:v3.3
     container_name: traefik
     restart: unless-stopped
+    mem_limit: 256m
     ports:
       - "80:80"
       - "8080:8080"
@@ -34,6 +35,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: unless-stopped
+    mem_limit: 128m
     command: tunnel run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
@@ -41,6 +43,18 @@ services:
       - traefik-public
     depends_on:
       - traefik
+
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+      - AUTOHEAL_INTERVAL=30
+      - AUTOHEAL_START_PERIOD=60
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
 volumes:
   traefik_logs:

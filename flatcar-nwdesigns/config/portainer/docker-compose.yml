@@ -5,6 +5,7 @@ services:
     image: portainer/portainer-ce:2.20.3
     container_name: portainer
     restart: unless-stopped
+    mem_limit: 256m
     ports:
       - "8000:8000"
       - "9443:9443"
