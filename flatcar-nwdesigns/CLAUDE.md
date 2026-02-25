@@ -9,8 +9,9 @@
 | **Docker** | 28.0.4 |
 | **Docker Compose** | v2.27.0 (`/opt/bin/docker-compose`) |
 | **CPU** | 2 cores (1 socket, q35 machine) |
-| **RAM** | 4096 MB |
-| **Swap** | 2 GB (`/swapfile`, persistent via `/etc/fstab`) |
+| **RAM** | 4096 MB (balloon min 2560 MB — PVE can reclaim up to 1.5 GiB when idle) |
+| **Swap** | 2 GB (`/swapfile`) + 1 GB zram (`/dev/zram0`, lzo-rle, priority 100) |
+| **Swappiness** | 80 (`/etc/sysctl.d/99-swappiness.conf`) |
 | **Disk** | 28.5 GB on local-lvm (EFI 4M + root 26.2 GB partition) |
 | **BIOS** | OVMF (UEFI) |
 | **Network** | virtio on vmbr0 |
@@ -153,6 +154,12 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 - Memory limits set on all containers (~3 GB total budget on 4 GB VM).
 - Autoheal container monitors healthchecks and restarts unhealthy containers every 30s.
 - Prevents cascade OOM failures that previously caused Docker to hang.
+
+### Resource Optimization (2026-02-25)
+- Balloon enabled: PVE can reclaim VM memory down to 2560 MB when idle
+- Zram swap: 1 GB zram (lzo-rle) at priority 100, preferred over disk swap
+- Swappiness 80: helps balloon work by allowing cold Docker pages to compress in zram
+- Persisted via: `zram-swap.service` (systemd), `/etc/sysctl.d/99-swappiness.conf`
 
 ### Other Recommendations
 - Monitor Docker data growth — `docker system df` to check image/volume sizes

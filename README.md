@@ -10,7 +10,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 ┌──────────────────────────────────────────────────────────────┐
 │  thinkpad (10.21.21.99) — Proxmox VE 9.1.5                  │
 │  Kernel: 6.17.4-1-pve (6.17.9 installed, reboot pending)    │
-│  RAM: 7.6 GB (91% used) │ Swap: 11 GB (3.2 GB used)        │
+│  RAM: 7.6 GB (~66% used) │ Swap: 11 GB (~1.6 GB used)      │
 │  Uptime: 60+ days                                            │
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
@@ -43,7 +43,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 |-----------|------|-------------|
 | Model | Lenovo ThinkPad (i5-6200U) | 60+ days uptime |
 | CPU | 2 cores / 4 threads @ 2.30 GHz | Load avg: 2.18 |
-| RAM | 7.6 GB + 11 GB swap (3.8 GB zram + 7.6 GB LVM) | 91% used, 3.2 GB swapped |
+| RAM | 7.6 GB + 11 GB swap (3.8 GB zram + 7.6 GB LVM) | ~66% used, ~1.6 GB swapped (optimized 2026-02-25) |
 | Boot disk | 238.5 GB SSD (LVM: root + swap + thinpool) | root 44%, thinpool 18% |
 | Data disks | 2x 2.7 TB in ZFS mirror (`storage` pool) | 48% capacity, 35% frag |
 
@@ -192,7 +192,7 @@ Each VM/LXC that needs configuration management gets its own subdirectory with a
 
 1. ~~**VM 104 root disk FULL**~~ — **RESOLVED** (2026-02-20). Expanded from 8.5 GB to 28.5 GB. Now 33% used, Docker running normally.
 2. ~~**LXC 101 disk at 89%**~~ — **RESOLVED**. Now at 39%, no longer at risk.
-3. **Host RAM under pressure** — 91% used (6.9/7.6 GB), 3.2 GB swapped. VM 104 alone uses 4 GB. Pressure worsening.
+3. ~~**Host RAM under pressure**~~ — **MITIGATED** (2026-02-25). LXCs right-sized, KSM re-enabled, zram-tuned swappiness, VM 104 balloon enabled. Now ~66% used.
 4. **Pending kernel update** — Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 5. **ZFS USB disk errors** — The USB-attached disk in the mirror pool has 4 read / 8 checksum errors. Plan replacement.
 6. ~~**Orphaned backups**~~ — **RESOLVED**. Cleaned up during datastore separation.
@@ -201,4 +201,4 @@ Each VM/LXC that needs configuration management gets its own subdirectory with a
 
 ---
 
-*Last audited: 2026-02-24 via live SSH*
+*Last audited: 2026-02-25 via live SSH*

@@ -7,7 +7,7 @@
 - **Location**: NWDesigns office
 - **PVE Version**: 9.1.5 (running kernel 6.17.4-1-pve, 6.17.9-1-pve installed — reboot pending)
 - **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz)
-- **RAM**: 7.6 GB (91% used, 3.2 GiB swapped — under pressure)
+- **RAM**: 7.6 GB (~66% used, ~1.6 GiB swapped — optimized 2026-02-25)
 - **SSH**: `ssh root@10.21.21.99`
 
 ## Network
@@ -45,10 +45,10 @@
 
 | VMID | Type | Name | IP | Status | Cores | RAM | Disk | Storage | Autostart | Disk Used |
 |------|------|------|----|--------|-------|-----|------|---------|-----------|-----------|
-| 100 | LXC | wireguard | 10.21.21.100 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 46% |
-| 101 | LXC | proxmox-backup-server | 10.21.21.101 | running | 2 | 512 MB | 10 GB | local-lvm | yes | 39% |
-| 102 | LXC | timemachine-samba | 10.21.21.102 | running | 1 | 512 MB | 8 GB | local-lvm | yes | 14% |
-| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB | 28.5 GB | local-lvm | yes | 33% |
+| 100 | LXC | wireguard | 10.21.21.100 | running | 1 | 128 MB (+256 swap) | 8 GB | local-lvm | yes | 46% |
+| 101 | LXC | proxmox-backup-server | 10.21.21.101 | running | 1 | 256 MB (+512 swap) | 10 GB | local-lvm | yes | 39% |
+| 102 | LXC | timemachine-samba | 10.21.21.102 | running | 1 | 192 MB (+256 swap) | 8 GB | local-lvm | yes | 14% |
+| 104 | VM | flatcar-portainer-104 | 10.21.21.104 | running | 2 | 4096 MB (balloon min 2560) | 28.5 GB | local-lvm | yes | 33% |
 
 ### Guest Bind Mounts
 | VMID | Host Path | Guest Mountpoint |
@@ -73,7 +73,7 @@
 | chrony | NTP time synchronization | |
 | postfix | Local mail relay | |
 | smartmontools | Disk health monitoring | |
-| ksmtuned | Kernel same-page merging | Memory deduplication for VMs |
+| ksmtuned | Kernel same-page merging | Memory deduplication for VMs (KSM_THRES_COEF=95, always-on) |
 | zfs-zed | ZFS event daemon | |
 
 ## Web UIs
@@ -136,7 +136,7 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 ## Warnings
 - **VM 104 disk expanded**: Root disk expanded from 8.5 GB to 28.5 GB (2026-02-20). Now at 33% usage. Docker recovered, all 12 containers running.
 - ~~**LXC 101 disk at 89%**~~: **RESOLVED** — now at 39%. No longer at risk.
-- **Host RAM pressure**: 91% used (6.9/7.6 GiB), 3.2 GiB swapped. VM 104 alone takes 4 GiB. Pressure worsening.
+- ~~**Host RAM pressure**~~: **MITIGATED** (2026-02-25). LXCs right-sized (960 MB freed), KSM re-enabled, swappiness tuned for zram (150), VM 104 balloon set (min 2560 MB). Now ~66% used, ~1.6 GiB swapped.
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 - **ZFS USB disk errors**: `usb-External_USB3.0_20170331000D1` has 4 read / 8 checksum errors. Last scrub repaired 21K. Monitor via `zpool status storage`. Consider replacing.
 - **Stale PBS self-backup**: Last LXC 101 backup is from 2025-09-29 (5+ months old, not in backup job).
