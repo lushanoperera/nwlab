@@ -120,51 +120,9 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 
 ## CrowdSec Security
 
-### Overview
-CrowdSec is an open-source security engine that analyzes Traefik access logs to detect and block malicious traffic.
+CrowdSec analyzes Traefik access logs to detect and block malicious traffic. All services are protected via `crowdsec-bouncer@docker` ForwardAuth middleware.
 
-### Collections Installed
-- `crowdsecurity/traefik` - Traefik log parser and scenarios
-- `crowdsecurity/http-cve` - HTTP CVE detection
-
-### Healthcheck & Startup
-CrowdSec has a LAPI healthcheck (`cscli lapi status`) that runs every 30s. The bouncer uses `depends_on: service_healthy` so it only starts after CrowdSec's LAPI is confirmed healthy. This prevents zombie process scenarios where CrowdSec appears running but LAPI is dead.
-
-### How It Works
-1. Traefik writes access logs to `/logs/access.log`
-2. CrowdSec reads and parses these logs via `acquis.yaml`
-3. CrowdSec detects malicious patterns and creates "decisions" (bans)
-4. The bouncer checks incoming requests against decisions via ForwardAuth
-5. Blocked IPs receive a 403 Forbidden response
-
-### Bouncer Middleware
-All services are protected by the CrowdSec bouncer middleware:
-
-```yaml
-labels:
-  - "traefik.http.routers.<service>.middlewares=crowdsec-bouncer@docker"
-```
-
-### Management Commands
-```bash
-# View metrics
-sudo docker exec crowdsec cscli metrics
-
-# List blocked IPs
-sudo docker exec crowdsec cscli decisions list
-
-# Manually ban an IP
-sudo docker exec crowdsec cscli decisions add --ip 1.2.3.4 --duration 24h --reason "manual ban"
-
-# Remove a ban
-sudo docker exec crowdsec cscli decisions delete --ip 1.2.3.4
-
-# List installed collections
-sudo docker exec crowdsec cscli collections list
-
-# Update hub (scenarios, parsers)
-sudo docker exec crowdsec cscli hub update
-```
+For details (healthcheck, commands, bouncer config): see [services.md — CrowdSec](services.md#crowdsec).
 
 ## Traefik Routing
 

@@ -134,14 +134,16 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 ```
 
 ## Warnings
-- **VM 104 disk expanded**: Root disk expanded from 8.5 GB to 28.5 GB (2026-02-20). Now at 33% usage. Docker recovered, all 12 containers running.
-- ~~**LXC 101 disk at 89%**~~: **RESOLVED** — now at 39%. No longer at risk.
-- ~~**Host RAM pressure**~~: **MITIGATED** (2026-02-25). LXCs right-sized (960 MB freed), KSM re-enabled, swappiness tuned for zram (150), VM 104 balloon set (min 2560 MB). Now ~66% used, ~1.6 GiB swapped.
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 - **ZFS USB disk errors**: `usb-External_USB3.0_20170331000D1` has 4 read / 8 checksum errors. Last scrub repaired 21K. Monitor via `zpool status storage`. Consider replacing.
 - **Stale PBS self-backup**: Last LXC 101 backup is from 2025-09-29 (5+ months old, not in backup job).
 - **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
 - **PBS sync-job list bug**: `proxmox-backup-manager sync-job list` returns `[]` even though the `nwlab-to-homelab` push job exists and runs daily. Use `sync-job show nwlab-to-homelab` instead.
+
+### Resolved
+- ~~VM 104 disk~~ (2026-02-20): Expanded 8.5→28.5 GB. Now 33%.
+- ~~LXC 101 disk~~ (2026-02-20): Cleaned up, now 39%.
+- ~~Host RAM pressure~~ (2026-02-25): LXCs right-sized, KSM re-enabled, zram-tuned swappiness, balloon enabled. Now ~66% used.
 
 ## Backup Strategy
 - **PBS** (LXC 101 @ 10.21.21.101): Proxmox Backup Server

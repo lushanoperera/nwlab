@@ -40,32 +40,21 @@ Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres, ev
 Infrastructure containers: autoheal (auto-restarts unhealthy containers every 30s).
 
 ## Security
-- **CrowdSec** - Intrusion prevention system
-- **CrowdSec Bouncer** - ForwardAuth middleware blocking malicious IPs
-- All services protected via `crowdsec-bouncer@docker` middleware
+- All services protected via CrowdSec ForwardAuth middleware (`crowdsec-bouncer@docker`)
+- Details: [docs/services.md — CrowdSec](docs/services.md#crowdsec)
 
 ## VM Paths
-| Service | Config Path |
-|---------|-------------|
-| Infrastructure (Traefik + Cloudflared) | `/opt/infrastructure/` |
-| CrowdSec | `/opt/crowdsec/` |
-| Vaultwarden | `/opt/vaultwarden/` |
-| Portainer | `/opt/portainer/` |
-| n8n | `/opt/n8n/` |
-| Evolution API | `/opt/evolution-api/` |
+All stacks live under `/opt/<service>/` with `.env` files for secrets (not in docker-compose.yml).
+Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 
-## Secrets / Environment Files
-
-All sensitive data is stored in `.env` files on the VM (not in docker-compose.yml).
-
-| Service | Env File | Variables |
-|---------|----------|-----------|
-| Infrastructure | `/opt/infrastructure/.env` | `CLOUDFLARE_TUNNEL_TOKEN` |
-| CrowdSec | `/opt/crowdsec/.env` | `CROWDSEC_BOUNCER_API_KEY` |
-| Vaultwarden | `/opt/vaultwarden/.env` | `SMTP_PASSWORD` |
-| Evolution API | `/opt/evolution-api/.env` | `AUTHENTICATION_API_KEY`, `POSTGRES_PASSWORD` |
-
-Local config mirrors include `.env.example` files showing required variables without actual secrets.
+| Stack | Path | Secret Vars |
+|-------|------|-------------|
+| Infrastructure | `/opt/infrastructure/` | `CLOUDFLARE_TUNNEL_TOKEN` |
+| CrowdSec | `/opt/crowdsec/` | `CROWDSEC_BOUNCER_API_KEY` |
+| Vaultwarden | `/opt/vaultwarden/` | `SMTP_PASSWORD` |
+| n8n | `/opt/n8n/` | — |
+| Evolution API | `/opt/evolution-api/` | `AUTHENTICATION_API_KEY`, `POSTGRES_PASSWORD` |
+| Portainer | `/opt/portainer/` | — |
 
 ## Project Structure
 ```
@@ -121,47 +110,20 @@ ssh core@10.21.21.104 "cd /opt/infrastructure && sudo /opt/bin/docker-compose re
 ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 ```
 
-## Network
-- Docker network: `traefik-public`
-- All services must be connected to this network for Traefik routing
+## Key Config Notes
+- Docker network: `traefik-public` — all services must join for Traefik routing
+- Cloudflare Tunnel: `office-flatcar` — managed via [Zero Trust Dashboard](https://one.dash.cloudflare.com/)
+- Vaultwarden SMTP: Gmail (admin@nwdesigns.it) — app password in `.env`
+- Full service docs: [docs/services.md](docs/services.md) | Architecture: [docs/infrastructure.md](docs/infrastructure.md)
 
-## Cloudflare Tunnel
-- Tunnel name: `office-flatcar`
-- Token stored in: `/opt/infrastructure/.env`
-- Dashboard: https://one.dash.cloudflare.com/ → Networks → Tunnels
+## Known Issues
 
-## CrowdSec
-- Bouncer API key stored in: `/opt/crowdsec/.env`
-- Collections: `crowdsecurity/traefik`, `crowdsecurity/http-cve`
-- Logs source: Traefik access logs (`/logs/access.log`)
+### Active
+- Memory limits set on all containers (~3 GB total budget on 4 GB VM). Autoheal auto-restarts unhealthy containers.
+- Balloon enabled (min 2560 MB), zram swap (1 GiB lzo-rle), swappiness 80. Persisted via `zram-swap.service` + `/etc/sysctl.d/99-swappiness.conf`.
+- Monitor Docker data growth — `docker system df` to check image/volume sizes.
 
-## Vaultwarden
-- SMTP configured via Gmail (admin@nwdesigns.it)
-- App password stored in: `/opt/vaultwarden/.env`
-- Emails sent from: `Vaultwarden <admin@nwdesigns.it>`
-
-## Known Issues (as of 2026-02-24)
-
-### Root Disk — RESOLVED
-- Disk was 100% full (5.8 GB partition on 8.5 GB vdisk), Docker hung.
-- **Fixed**: Expanded to 28.5 GB via `qm resize 104 scsi0 +20G`, grew partition with `sgdisk`, `resize2fs`. Now 33% used (16 GB free).
-
-### Swap Added — RESOLVED
-- 2 GB swap file at `/swapfile`, persistent via `/etc/fstab`.
-- Provides OOM protection for the 12 containers under memory pressure.
-
-### Resource Limits (added 2026-02-24)
-- Memory limits set on all containers (~3 GB total budget on 4 GB VM).
-- Autoheal container monitors healthchecks and restarts unhealthy containers every 30s.
-- Prevents cascade OOM failures that previously caused Docker to hang.
-
-### Resource Optimization (2026-02-25)
-- Balloon enabled: PVE can reclaim VM memory down to 2560 MB when idle
-- Zram swap: 1 GB zram (lzo-rle) at priority 100, preferred over disk swap
-- Swappiness 80: helps balloon work by allowing cold Docker pages to compress in zram
-- Persisted via: `zram-swap.service` (systemd), `/etc/sysctl.d/99-swappiness.conf`
-
-### Other Recommendations
-- Monitor Docker data growth — `docker system df` to check image/volume sizes
-- Consider moving Docker data dir to ZFS-backed storage if data grows beyond 20 GB
-- Consider separating databases to a dedicated VM for larger workloads
+### Resolved
+- ~~Root disk full~~ (2026-02-20): Expanded 8.5→28.5 GB. Now 33%.
+- ~~No swap~~ (2026-02-24): 2 GB swapfile at `/swapfile` + 1 GB zram added.
+- ~~Cascade OOM~~ (2026-02-24): Memory limits + autoheal prevent cascade failures.
