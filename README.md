@@ -17,12 +17,12 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 │  │ .100     │  │ .101     │  │ .102      │                   │
 │  └──────────┘  └──────────┘  └──────────┘                   │
 │                                                              │
-│  ┌──────────────────────────────┐                            │
-│  │ Flatcar VM 104               │                            │
-│  │ .104 │ Docker 28.0.4         │                            │
-│  │ 12 containers / 6 stacks     │                            │
-│  │ Traefik, CrowdSec,          │                            │
-│  │ Vaultwarden, n8n,           │                            │
+│  ┌──────────────────────────────┐  ┌─────────────────┐       │
+│  │ Flatcar VM 104               │  │ Ubuntu VM 103   │       │
+│  │ .104 │ Docker 28.0.4         │  │ .103 │ Lubuntu  │       │
+│  │ 12 containers / 6 stacks     │  │ Claude Code CLI │       │
+│  │ Traefik, CrowdSec,          │  │ (on-demand)     │       │
+│  │ Vaultwarden, n8n,           │  └─────────────────┘       │
 │  │ Evolution API, Portainer    │                            │
 │  └──────────────────────────────┘                            │
 │                                                              │
@@ -32,25 +32,26 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 
 ## Network
 
-| Host | IP | Purpose |
-|------|----|---------|
-| thinkpad | 10.21.21.99 | Proxmox hypervisor |
-| wireguard | 10.21.21.100 | VPN gateway |
-| proxmox-backup-server | 10.21.21.101 | PBS for VM/LXC backups |
-| timemachine-samba | 10.21.21.102 | macOS Time Machine over SMB |
-| flatcar-portainer | 10.21.21.104 | Docker services (Flatcar Linux) |
+| Host                  | IP           | Purpose                             |
+| --------------------- | ------------ | ----------------------------------- |
+| thinkpad              | 10.21.21.99  | Proxmox hypervisor                  |
+| wireguard             | 10.21.21.100 | VPN gateway                         |
+| proxmox-backup-server | 10.21.21.101 | PBS for VM/LXC backups              |
+| timemachine-samba     | 10.21.21.102 | macOS Time Machine over SMB         |
+| ubuntu-desktop        | 10.21.21.103 | Claude Code workstation (on-demand) |
+| flatcar-portainer     | 10.21.21.104 | Docker services (Flatcar Linux)     |
 
 ## Web Interfaces
 
-| Service | URL |
-|---------|-----|
-| Proxmox VE | https://10.21.21.99:8006 |
-| PBS | https://10.21.21.101:8007 |
-| Portainer | https://portainer.nwdesigns.it |
-| Traefik | https://traefik.nwdesigns.it |
-| Vaultwarden | https://vaultwarden.nwdesigns.it |
-| n8n | https://n8n.nwdesigns.it |
-| Evolution API | https://evolution.nwdesigns.it |
+| Service       | URL                              |
+| ------------- | -------------------------------- |
+| Proxmox VE    | https://10.21.21.99:8006         |
+| PBS           | https://10.21.21.101:8007        |
+| Portainer     | https://portainer.nwdesigns.it   |
+| Traefik       | https://traefik.nwdesigns.it     |
+| Vaultwarden   | https://vaultwarden.nwdesigns.it |
+| n8n           | https://n8n.nwdesigns.it         |
+| Evolution API | https://evolution.nwdesigns.it   |
 
 ## Quick Start
 
@@ -72,10 +73,12 @@ nwlab/
 ├── README.md                     # This file — quick overview
 ├── docs/
 │   └── backups.md                # Backup architecture, schedule, restore
-└── flatcar-nwdesigns/            # VM 104 — Docker services
-    ├── CLAUDE.md                 # VM-specific reference
-    ├── config/                   # Docker Compose files (local mirror)
-    └── docs/                     # infrastructure.md, services.md
+├── flatcar-nwdesigns/            # VM 104 — Docker services
+│   ├── CLAUDE.md                 # VM-specific reference
+│   ├── config/                   # Docker Compose files (local mirror)
+│   └── docs/                     # infrastructure.md, services.md
+└── ubuntu-desktop/               # VM 103 — Claude Code workstation
+    └── CLAUDE.md                 # VM-specific reference
 ```
 
 ## Backup Strategy
@@ -92,4 +95,4 @@ Retention: 7 daily / 4 weekly / 2 monthly. Full docs: [docs/backups.md](docs/bac
 
 ---
 
-*Last audited: 2026-02-25 via live SSH*
+_Last audited: 2026-02-25 via live SSH_

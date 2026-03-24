@@ -7,7 +7,8 @@ PVE (thinkpad)            PBS Local (LXC 101)                  Homelab PBS (10.0
 +------------+  vzdump    +----------------------+  push        +----------------------+
 | LXC 100    |---------->| home-backup          |--04:00-WG-->| nwlab-backup         |
 | LXC 102    |  01:00     | /mnt/datastore       |              | (nwlab offsite copy) |
-| VM  104    |  snapshot  | storage/pbs (500 GB) |              +----------------------+
+| VM  103    |  snapshot  | storage/pbs (500 GB) |              +----------------------+
+| VM  104    |  zstd      |                      |
 +------------+  zstd      +----------------------+
                               GC @ 03:00                <--push-WG--+
                               7d / 4w / 2m retention                |
@@ -24,36 +25,37 @@ PVE (thinkpad)            PBS Local (LXC 101)                  Homelab PBS (10.0
 
 nwlab PBS has two datastores to keep local and remote backups separate:
 
-| Datastore | Purpose | Path | ZFS Dataset | Quota | Content |
-|-----------|---------|------|-------------|-------|---------|
-| `home-backup` | nwlab local backups | `/mnt/datastore` | `storage/pbs` | 500 GB | ct/100, ct/101, ct/102, vm/104 |
+| Datastore      | Purpose                | Path                | ZFS Dataset            | Quota  | Content                                   |
+| -------------- | ---------------------- | ------------------- | ---------------------- | ------ | ----------------------------------------- |
+| `home-backup`  | nwlab local backups    | `/mnt/datastore`    | `storage/pbs`          | 500 GB | ct/100, ct/101, ct/102, vm/103, vm/104    |
 | `homelab-sync` | Incoming homelab syncs | `/mnt/homelab-sync` | `storage/homelab-sync` | 300 GB | Homelab backup groups (received via push) |
 
 This prevents VMID collisions (both environments use 100-104) and ensures nwlab's prune job only affects nwlab backups.
 
 ## Components
 
-| Component | Location | Role |
-|-----------|----------|------|
-| PVE vzdump | thinkpad (10.21.21.99) | Creates snapshot backups of guests |
-| PBS Local | LXC 101 (10.21.21.101) | Stores, deduplicates, and manages backups |
-| PBS Remote | 10.0.0.6 / 192.168.100.187 | Offsite copy via push sync job |
+| Component  | Location                   | Role                                      |
+| ---------- | -------------------------- | ----------------------------------------- |
+| PVE vzdump | thinkpad (10.21.21.99)     | Creates snapshot backups of guests        |
+| PBS Local  | LXC 101 (10.21.21.101)     | Stores, deduplicates, and manages backups |
+| PBS Remote | 10.0.0.6 / 192.168.100.187 | Offsite copy via push sync job            |
 
 ## Schedule
 
-| Time | Operation | Details |
-|------|-----------|---------|
-| 01:00 | vzdump | Backs up LXC 100, 102 + VM 104 to `pbs-nwlab` |
+| Time  | Operation          | Details                                            |
+| ----- | ------------------ | -------------------------------------------------- |
+| 01:00 | vzdump             | Backs up LXC 100, 102 + VM 103, 104 to `pbs-nwlab` |
 | 03:00 | Garbage Collection | PBS removes unreferenced chunks from `home-backup` |
-| 04:00 | Remote Sync (push) | PBS pushes `home-backup` → homelab `nwlab-backup` |
+| 04:00 | Remote Sync (push) | PBS pushes `home-backup` → homelab `nwlab-backup`  |
 
 ## Backed-Up Guests
 
-| VMID | Name | Type | Disk | Notes |
-|------|------|------|------|-------|
-| 100 | wireguard | LXC | 8 GB | VPN gateway |
-| 102 | timemachine-samba | LXC | 8 GB | Excludes `/timemachine` bind mount (not a volume) |
-| 104 | flatcar-portainer-104 | VM | 28.5 GB | QEMU Guest Agent active (fs-freeze/thaw) |
+| VMID | Name                  | Type | Disk    | Notes                                               |
+| ---- | --------------------- | ---- | ------- | --------------------------------------------------- |
+| 100  | wireguard             | LXC  | 8 GB    | VPN gateway                                         |
+| 102  | timemachine-samba     | LXC  | 8 GB    | Excludes `/timemachine` bind mount (not a volume)   |
+| 103  | ubuntu-desktop-103    | VM   | 32 GB   | Claude Code workstation (on-demand, may be stopped) |
+| 104  | flatcar-portainer-104 | VM   | 28.5 GB | QEMU Guest Agent active (fs-freeze/thaw)            |
 
 **Not backed up**: LXC 101 (PBS itself) — it's the backup server; restore from PBS ISO + config.
 
@@ -61,11 +63,11 @@ This prevents VMID collisions (both environments use 100-104) and ensures nwlab'
 
 ## Retention Policy
 
-| Level | Keep | Applied By |
-|-------|------|-----------|
-| Daily | 7 | PVE prune-backups + PBS prune job |
-| Weekly | 4 | PVE prune-backups + PBS prune job |
-| Monthly | 2 | PVE prune-backups + PBS prune job |
+| Level   | Keep | Applied By                        |
+| ------- | ---- | --------------------------------- |
+| Daily   | 7    | PVE prune-backups + PBS prune job |
+| Weekly  | 4    | PVE prune-backups + PBS prune job |
+| Monthly | 2    | PVE prune-backups + PBS prune job |
 
 Retention applies only to `home-backup` (nwlab's own backups). The `homelab-sync` datastore is managed by homelab's push job retention.
 
@@ -102,17 +104,17 @@ sync: nwlab-to-homelab
   schedule: 04:00
 ```
 
-| Setting | Value | Notes |
-|---------|-------|-------|
-| Sync job | `nwlab-to-homelab` | Push direction |
-| Source datastore | `home-backup` | nwlab local backups |
-| Remote | `homelab-pbs` → `10.0.0.6:8007` | WireGuard overlay IP |
-| Remote datastore | `nwlab-backup` | Dedicated nwlab offsite copy |
-| Auth | `root@pam` password | Stored in PBS remote config |
-| Schedule | daily @ 04:00 | After GC (03:00), after vzdump (01:00) |
-| remove-vanished | false | Safe — won't delete remote-only backups |
+| Setting          | Value                           | Notes                                   |
+| ---------------- | ------------------------------- | --------------------------------------- |
+| Sync job         | `nwlab-to-homelab`              | Push direction                          |
+| Source datastore | `home-backup`                   | nwlab local backups                     |
+| Remote           | `homelab-pbs` → `10.0.0.6:8007` | WireGuard overlay IP                    |
+| Remote datastore | `nwlab-backup`                  | Dedicated nwlab offsite copy            |
+| Auth             | `root@pam` password             | Stored in PBS remote config             |
+| Schedule         | daily @ 04:00                   | After GC (03:00), after vzdump (01:00)  |
+| remove-vanished  | false                           | Safe — won't delete remote-only backups |
 
-**Synced groups**: ct/100, ct/101, ct/102, vm/104 (all backup groups in `home-backup`).
+**Synced groups**: ct/100, ct/101, ct/102, vm/103, vm/104 (all backup groups in `home-backup`).
 
 > **Known quirk**: `proxmox-backup-manager sync-job list` returns `[]` even though the job exists and runs daily. This appears to be a PBS 4.x bug with push-direction sync jobs. Use `sync-job show nwlab-to-homelab` instead.
 
@@ -135,6 +137,7 @@ Homelab PBS (wg0: 10.0.0.6, LAN: 192.168.100.187)
 ```
 
 **Config locations**:
+
 - PBS route: `/etc/network/interfaces` on LXC 101 (`up ip route add 10.0.0.0/24 via 10.21.21.100`)
 - WG forwarding: `/etc/wireguard/wg0.conf` PostUp on LXC 100 (FORWARD + eth0 MASQUERADE)
 - Homelab WG AllowedIPs: `/etc/wireguard/wg0.conf` on homelab PBS (includes `10.21.21.0/24, 10.0.0.0/24`)

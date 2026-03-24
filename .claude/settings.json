@@ -1,0 +1,18 @@
+{
+  "autoMode": {
+    "environment": [
+      "**Trusted repo**: github.com/lushanoperera/nwlab",
+      "**Source control**: github.com/lushanoperera",
+      "**Trusted internal domains**: *.home.disconnesso.com, *.nwdesigns.home.arpa",
+      "**Key infrastructure hosts**: Proxmox VE 10.21.21.99 (PVE 9.1.6), WireGuard LXC 10.21.21.100, PBS LXC 10.21.21.101, TimeMachine LXC 10.21.21.102, Ubuntu VM 10.21.21.103, Flatcar VM 10.21.21.104",
+      "**Web UIs**: Proxmox (10.21.21.99:8006), PBS (10.21.21.101:8007), Portainer (10.21.21.104:9443), Traefik (10.21.21.104:8080)",
+      "**Docker services on VM 104 (Flatcar)**: Traefik v3.3 (reverse proxy), Portainer CE 2.20.3, n8n (workflow), Evolution API (WhatsApp), Vaultwarden (passwords), CrowdSec + bouncer (security), Cloudflared (tunnel), Autoheal, Postgres x2, Redis",
+      "**Storage**: ZFS mirror 'storage' (DEGRADED — USB disk FAULTED, replace needed), LVM-thin on SSD (28%), PBS datastore (6%), local (52%)",
+      "**External hosting**: Cloudways (*.cloudwaysapps.com) — no sudo, rsync only",
+      "**This is an infrastructure documentation repo** — configs here mirror deployed state on VMs. Editing files does NOT affect running services.",
+      "**Safe read-only SSH**: pveversion, qm list, pct list, pvesm status, zpool status, zfs list, docker ps, systemctl status — always safe.",
+      "**Prompt before SSH writes**: apt install, systemctl restart/stop, vzdump, zfs destroy, zpool destroy/clear, pct stop/destroy, qm stop/destroy, docker compose up/down/restart — require user confirmation.",
+      "**Safe local operations**: git, file reads/writes, grep, diff — all safe. No build system or test suite in this repo."
+    ]
+  }
+}
