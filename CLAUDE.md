@@ -101,7 +101,8 @@ nwlab/
 ├── CLAUDE.md                  # This file — infrastructure overview
 ├── README.md                  # Human-readable project documentation
 ├── docs/                      # Infrastructure-wide documentation
-│   └── backups.md             # Backup architecture, schedule, restore
+│   ├── backups.md             # Backup architecture, schedule, restore
+│   └── commands.md            # SSH, storage, guest management commands
 ├── flatcar-nwdesigns/         # VM 104: Flatcar Docker services
 │   ├── CLAUDE.md              # VM-specific docs & commands
 │   ├── config/                # Docker Compose configs (mirror of VM)
@@ -120,42 +121,14 @@ nwlab/
 
 ## Common Commands
 
-```bash
-# Proxmox host
-ssh root@10.21.21.99
-ssh root@10.21.21.99 "qm list && pct list"
-
-# Guest shells
-ssh root@10.21.21.100   # WireGuard
-ssh root@10.21.21.101   # PBS
-ssh root@10.21.21.102   # Time Machine
-ssh disconnesso@10.21.21.103  # Ubuntu Desktop (Claude Code)
-ssh core@10.21.21.104   # Flatcar (Docker)
-
-# Storage
-ssh root@10.21.21.99 "zpool status storage"        # ZFS health
-ssh root@10.21.21.99 "zfs list"                     # Dataset usage
-ssh root@10.21.21.99 "pvesm status"                 # PVE storage overview
-
-# Guest management
-ssh root@10.21.21.99 "pct start <VMID>"             # Start LXC
-ssh root@10.21.21.99 "pct stop <VMID>"              # Stop LXC
-ssh root@10.21.21.99 "pct enter <VMID>"             # Console into LXC
-ssh root@10.21.21.99 "qm start <VMID>"              # Start VM
-
-# Backups
-ssh root@10.21.21.99 "pvesh get /cluster/backup --output-format json-pretty"  # Job config
-ssh root@10.21.21.99 "pvesm list pbs-nwlab"                                   # List backups
-ssh root@10.21.21.99 "vzdump <VMID> --storage pbs-nwlab --mode snapshot --compress zstd"  # Manual backup
-ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/homelab-sync"  # PBS quotas
-```
+See [`docs/commands.md`](docs/commands.md) — SSH, storage, guest management, backup commands.
 
 ## Warnings
 
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
 - **ZFS USB disk FAULTED**: `usb-External_USB3.0_20170331000D1` has 21 read / 14 checksum errors — marked FAULTED ("too many errors"). Mirror pool `storage` is **DEGRADED** but functional on single disk. **Replace urgently.** Last scrub (2026-03-08) repaired 2.41M with 0 residual errors.
 - **homelab-sync approaching quota**: 192 GB used of 300 GB quota (108 GB remaining). Monitor growth.
-- **Stale PBS self-backup**: Last LXC 101 backup is from 2025-09-29 (5+ months old, not in backup job).
+- **Stale PBS self-backup**: Last LXC 101 backup is from 2025-09-30 (6 months old, not in backup job). Add to `nwlab-daily` or run manual `vzdump 101`.
 - **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
 - **PBS sync-job list bug**: `proxmox-backup-manager sync-job list` returns `[]` even though the `nwlab-to-homelab` push job exists and runs daily. Use `sync-job show nwlab-to-homelab` instead.
 
@@ -167,14 +140,4 @@ ssh root@10.21.21.99 "zfs list -o name,used,avail,quota storage/pbs storage/home
 
 ## Backup Strategy
 
-- **PBS** (LXC 101 @ 10.21.21.101): Proxmox Backup Server
-- **Web UI**: https://10.21.21.101:8007
-- **PVE storage**: `pbs-nwlab` (auth: `root@pam`)
-- **Datastores**:
-  - `home-backup` — nwlab local backups (`/mnt/datastore`, `storage/pbs`, 500 GB quota)
-  - `homelab-sync` — incoming homelab syncs (`/mnt/homelab-sync`, `storage/homelab-sync`, 300 GB quota)
-- **Job**: `nwlab-daily` — LXC 100, 102 + VM 103, 104 @ 01:00, snapshot mode, zstd
-- **Retention**: 7 daily, 4 weekly, 2 monthly (PVE prune + PBS prune job on `home-backup`)
-- **GC**: daily @ 03:00
-- **Remote sync**: `nwlab-to-homelab` push job — daily @ 04:00, pushes `home-backup` → homelab `nwlab-backup` via WireGuard VPN
-- **Full docs**: [`docs/backups.md`](docs/backups.md)
+See [`docs/backups.md`](docs/backups.md) — PBS architecture, jobs, retention, remote sync, restore procedures.
