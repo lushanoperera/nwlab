@@ -4,11 +4,11 @@ Infrastructure-as-documentation for the NWDesigns office Proxmox homelab.
 
 ## Overview
 
-A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office infrastructure: VPN, backups, and Docker services.
+A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office infrastructure: VPN, backups, and Docker services.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  thinkpad (10.21.21.99) — Proxmox VE 9.1.5                  │
+│  thinkpad (10.21.21.99) — Proxmox VE 9.1.6                  │
 │  7.6 GB RAM │ 11 GB swap (3.8 GB zram + 7.6 GB LVM)         │
 │                                                              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
@@ -19,7 +19,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.5** hosts the office inf
 │                                                              │
 │  ┌──────────────────────────────┐  ┌─────────────────┐       │
 │  │ Flatcar VM 104               │  │ Ubuntu VM 103   │       │
-│  │ .104 │ Docker 28.0.4         │  │ .103 │ Lubuntu  │       │
+│  │ .104 │ Docker 28.0.4         │  │ .103 │ 26.04LTS │       │
 │  │ 12 containers / 6 stacks     │  │ Claude Code CLI │       │
 │  │ Traefik, CrowdSec,          │  │ (on-demand)     │       │
 │  │ Vaultwarden, n8n,           │  └─────────────────┘       │
@@ -77,7 +77,7 @@ nwlab/
 │   ├── CLAUDE.md                 # VM-specific reference
 │   ├── config/                   # Docker Compose files (local mirror)
 │   └── docs/                     # infrastructure.md, services.md
-└── ubuntu-desktop/               # VM 103 — Claude Code workstation
+└── ubuntu-desktop/               # VM 103 — Lubuntu 26.04 Claude Code workstation
     └── CLAUDE.md                 # VM-specific reference
 ```
 
@@ -95,4 +95,4 @@ Retention: 7 daily / 4 weekly / 2 monthly. Full docs: [docs/backups.md](docs/bac
 
 ---
 
-_Last audited: 2026-02-25 via live SSH_
+_Last audited: 2026-04-08 via live SSH_

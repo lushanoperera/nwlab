@@ -107,7 +107,7 @@ nwlab/
 │   ├── CLAUDE.md              # VM-specific docs & commands
 │   ├── config/                # Docker Compose configs (mirror of VM)
 │   └── docs/                  # Service documentation
-└── ubuntu-desktop/            # VM 103: Lubuntu Claude Code workstation
+└── ubuntu-desktop/            # VM 103: Lubuntu 26.04 Claude Code workstation
     └── CLAUDE.md              # VM-specific docs & commands
 ```
 
@@ -141,3 +141,8 @@ See [`docs/commands.md`](docs/commands.md) — SSH, storage, guest management, b
 ## Backup Strategy
 
 See [`docs/backups.md`](docs/backups.md) — PBS architecture, jobs, retention, remote sync, restore procedures.
+
+## Secrets
+
+No secrets required. If secrets are added in the future, use varlock + rbw.
+See `~/.claude/rules/secrets-management.md` for the standard pattern.

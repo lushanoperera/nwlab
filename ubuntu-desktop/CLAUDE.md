@@ -6,10 +6,10 @@
 | --------------- | ---------------------------------------------- |
 | **VMID**        | 103                                            |
 | **Name**        | `ubuntu-desktop-103`                           |
-| **OS**          | Lubuntu 24.04.4 LTS (LXQt desktop)             |
+| **OS**          | Lubuntu 26.04 LTS (LXQt desktop)                |
 | **CPU**         | 2 cores, host type (q35 machine)               |
 | **RAM**         | 2048 MB (balloon min 1024 MB)                  |
-| **Swap**        | 512 MB zram (zstd, priority 100)               |
+| **Swap**        | 512 MB zram (zstd, prio 100) + 512 MB swapfile  |
 | **Swappiness**  | 100 (`/etc/sysctl.d/99-zram.conf`)             |
 | **Disk**        | 32 GB on local-lvm (SSD)                       |
 | **BIOS**        | OVMF (UEFI)                                    |
@@ -37,7 +37,7 @@ ssh disconnesso@10.21.21.103          # SSH (replace disconnesso with install us
 | --------------------------- | ------------------------------------ |
 | Firefox                     | OAuth authentication for Claude Code |
 | Node.js 22 LTS              | Runtime for Claude Code CLI          |
-| `@anthropic-ai/claude-code` | Claude Code CLI (npm global)         |
+| `@anthropic-ai/claude-code` | Claude Code CLI (npm global, auto-updates enabled) |
 | openssh-server              | Remote SSH access                    |
 | qemu-guest-agent            | PVE integration (IP, fs-freeze)      |
 | zram-tools                  | Compressed RAM swap                  |
@@ -51,7 +51,7 @@ network:
   version: 2
   renderer: networkd
   ethernets:
-    enp6s18:
+    ens18:
       dhcp4: false
       addresses:
         - 10.21.21.103/24
@@ -62,6 +62,8 @@ network:
         addresses: [9.9.9.9, 8.8.8.8, 1.1.1.1]
         search: [station]
 ```
+
+> **Note**: NIC was renamed from `enp6s18` to `ens18` during the 24.04→26.04 upgrade (kernel 7.0 naming).
 
 ## Common Commands
 
