@@ -9,7 +9,7 @@
 | **Docker** | 28.0.4 |
 | **Docker Compose** | v2.27.0 (`/opt/bin/docker-compose`) |
 | **CPU** | 2 cores (1 socket, q35 machine) |
-| **RAM** | 4096 MB (balloon min 2560 MB — PVE can reclaim up to 1.5 GiB when idle) |
+| **RAM** | 4096 MB (balloon min 3072 MB — PVE can reclaim up to 1 GiB when idle) |
 | **Swap** | 2 GB (`/swapfile`) + 1 GB zram (`/dev/zram0`, lzo-rle, priority 100) |
 | **Swappiness** | 80 (`/etc/sysctl.d/99-swappiness.conf`) |
 | **Disk** | 28.5 GB on local-lvm (EFI 4M + root 26.2 GB partition) |
@@ -120,7 +120,7 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 
 ### Active
 - Memory limits set on all containers (~3 GB total budget on 4 GB VM). Autoheal auto-restarts unhealthy containers.
-- Balloon enabled (min 2560 MB), zram swap (1 GiB lzo-rle), swappiness 80. Persisted via `zram-swap.service` + `/etc/sysctl.d/99-swappiness.conf`.
+- Balloon enabled (min 3072 MB), zram swap (1 GiB lzo-rle), swappiness 80. Persisted via `zram-swap.service` + `/etc/sysctl.d/99-swappiness.conf`.
 - Monitor Docker data growth — `docker system df` to check image/volume sizes.
 
 ### Resolved

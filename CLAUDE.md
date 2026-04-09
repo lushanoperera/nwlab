@@ -8,7 +8,7 @@
 - **Location**: NWDesigns office
 - **PVE Version**: 9.1.6 (running kernel 6.17.4-1-pve, 6.17.9-1-pve installed — reboot pending)
 - **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz)
-- **RAM**: 7.6 GB (~66% used, ~1.6 GiB swapped — optimized 2026-02-25)
+- **RAM**: 15.5 GB dual-channel (~39% used)
 - **SSH**: `ssh root@10.21.21.99`
 
 ## Network
@@ -52,8 +52,8 @@
 | 100  | LXC  | wireguard             | 10.21.21.100 | running | 1     | 128 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 46%       |
 | 101  | LXC  | proxmox-backup-server | 10.21.21.101 | running | 1     | 256 MB (+512 swap)         | 10 GB   | local-lvm | yes       | 39%       |
 | 102  | LXC  | timemachine-samba     | 10.21.21.102 | running | 1     | 192 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 14%       |
-| 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 2     | 2048 MB (balloon min 1024) | 32 GB   | local-lvm | no        | —         |
-| 104  | VM   | flatcar-portainer-104 | 10.21.21.104 | running | 2     | 4096 MB (balloon min 2560) | 28.5 GB | local-lvm | yes       | 33%       |
+| 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 2     | 2048 MB (balloon min 1536) | 32 GB   | local-lvm | no        | —         |
+| 104  | VM   | flatcar-portainer-104 | 10.21.21.104 | running | 2     | 4096 MB (balloon min 3072) | 28.5 GB | local-lvm | yes       | 33%       |
 
 ### Guest Bind Mounts
 
@@ -82,7 +82,7 @@
 | chrony                   | NTP time synchronization   |                                                             |
 | postfix                  | Local mail relay           |                                                             |
 | smartmontools            | Disk health monitoring     |                                                             |
-| ksmtuned                 | Kernel same-page merging   | Memory deduplication for VMs (KSM_THRES_COEF=95, always-on) |
+| ksmtuned                 | Kernel same-page merging   | Memory deduplication for VMs (KSM_THRES_COEF=50, activates >50% usage) |
 | zfs-zed                  | ZFS event daemon           |                                                             |
 
 ## Web UIs
@@ -137,6 +137,7 @@ See [`docs/commands.md`](docs/commands.md) — SSH, storage, guest management, b
 - ~~VM 104 disk~~ (2026-02-20): Expanded 8.5→28.5 GB. Now 33%.
 - ~~LXC 101 disk~~ (2026-02-20): Cleaned up, now 39%.
 - ~~Host RAM pressure~~ (2026-02-25): LXCs right-sized, KSM re-enabled, zram-tuned swappiness, balloon enabled. Now ~66% used.
+- ~~RAM upgrade~~ (2026-04-09): 8→16 GB dual-channel. Zram reduced 50%→15% (~2.3 GB), KSM threshold relaxed 95→50, balloon mins raised (103: 1024→1536, 104: 2560→3072).
 
 ## Backup Strategy
 

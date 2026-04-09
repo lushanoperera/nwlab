@@ -8,7 +8,7 @@
 | **Name**        | `ubuntu-desktop-103`                           |
 | **OS**          | Lubuntu 26.04 LTS (LXQt desktop)                |
 | **CPU**         | 2 cores, host type (q35 machine)               |
-| **RAM**         | 2048 MB (balloon min 1024 MB)                  |
+| **RAM**         | 2048 MB (balloon min 1536 MB)                  |
 | **Swap**        | 512 MB zram (zstd, prio 100) + 512 MB swapfile  |
 | **Swappiness**  | 100 (`/etc/sysctl.d/99-zram.conf`)             |
 | **Disk**        | 32 GB on local-lvm (SSD)                       |
@@ -85,10 +85,10 @@ ssh disconnesso@10.21.21.103 "node --version && claude --version"
 
 ## Memory Budget
 
-With balloon enabled, this VM returns up to 1 GB to the host when idle:
+With balloon enabled, this VM returns up to 512 MB to the host when idle:
 
 - **Max**: 2048 MB (Firefox + Claude Code + LXQt active)
-- **Min**: 1024 MB (idle, balloon deflated)
+- **Min**: 1536 MB (idle, balloon deflated)
 - **Zram**: 512 MB compressed swap helps balloon work smoothly
 
 ## Known Issues
@@ -100,5 +100,5 @@ With balloon enabled, this VM returns up to 1 GB to the host when idle:
 ### Notes
 
 - LXQt was chosen over GNOME/KDE for lower memory footprint (~400 MB idle vs ~1.5 GB)
-- Balloon min 1024 MB is tight — if Firefox + Claude Code both under heavy load, expect some zram swap usage
+- Balloon min raised to 1536 MB (2026-04-09) — more headroom for Firefox + Claude Code under load
 - No autostart — remember to `qm start 103` before use
