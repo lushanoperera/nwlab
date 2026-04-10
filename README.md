@@ -20,11 +20,12 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 │  ┌──────────────────────────────┐  ┌─────────────────┐       │
 │  │ Flatcar VM 104               │  │ Ubuntu VM 103   │       │
 │  │ .104 │ Docker 28.0.4         │  │ .103 │ 26.04LTS │       │
-│  │ 14 containers / 8 stacks     │  │ Claude Code CLI │       │
+│  │ 16 containers / 10 stacks    │  │ Claude Code CLI │       │
 │  │ Traefik, CrowdSec,          │  │ + blog-publisher│       │
 │  │ Vaultwarden, n8n,           │  │   cron jobs     │       │
 │  │ Evolution API, Portainer,   │  └─────────────────┘       │
-│  │ OTel Collector, ntfy        │                            │
+│  │ OTel Collector, ntfy,       │                            │
+│  │ Prometheus, Grafana         │                            │
 │  └──────────────────────────────┘                            │
 │                                                              │
 │  Host: wazuh-agent, prometheus, chrony, postfix, ksmtuned    │
@@ -42,7 +43,9 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | ubuntu-desktop        | 10.21.21.103 | Claude Code workstation + blog-publisher cron jobs |
 | flatcar-portainer     | 10.21.21.104 | Docker services (Flatcar Linux)     |
 | ntfy                  | 10.21.21.104 (http://ntfy.nwlab.home.arpa) | Blog-publisher alert channel (LAN-only) |
-| otel-collector        | 10.21.21.104 (:4317 / :4318) | Blog-publisher telemetry ingest (→ NDJSON + homelab Prometheus) |
+| otel-collector        | 10.21.21.104 (:4317 / :4318) | Blog-publisher telemetry ingest (→ NDJSON + co-located Prometheus) |
+| prometheus            | 10.21.21.104 (127.0.0.1:9090, observability bridge) | TSDB backend for blog-publisher metrics |
+| grafana               | 10.21.21.104 (http://grafana.nwlab.home.arpa) | Dashboard frontend (LAN-only) |
 
 ## Web Interfaces
 
@@ -56,6 +59,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | n8n           | https://n8n.nwdesigns.it         |
 | Evolution API | https://evolution.nwdesigns.it   |
 | ntfy          | http://ntfy.nwlab.home.arpa      |
+| Grafana       | http://grafana.nwlab.home.arpa   |
 
 ## Quick Start
 

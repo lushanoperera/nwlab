@@ -86,14 +86,16 @@
 | ksmtuned                 | Kernel same-page merging   | Memory deduplication for VMs (KSM_THRES_COEF=50, activates >50% usage) |
 | zfs-zed                  | ZFS event daemon           |                                                             |
 
-### Observability (VM 104 containers)
+### Observability (VM 104 containers — full stack co-located, no cross-WG)
 
 | Service        | Role                                                                          | Endpoint                                      |
 | -------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
-| otel-collector | Ingests Claude Code telemetry from VM 103 blog publishers; fans out to NDJSON files + homelab Prometheus remote-write | `http://10.21.21.104:4317` (gRPC) / `:4318` (HTTP) |
+| otel-collector | Ingests Claude Code telemetry from VM 103 blog publishers; fans out to NDJSON files + co-located Prometheus remote-write | `http://10.21.21.104:4317` (gRPC) / `:4318` (HTTP) |
+| prometheus     | TSDB backend; receives metrics via remote_write from otel-collector on the shared `observability` Docker bridge | `127.0.0.1:9090` (LAN-only via SSH tunnel)    |
+| grafana        | Dashboard frontend; provisioned Prometheus datasource + blog-publishers dashboard | `http://grafana.nwlab.home.arpa` (LAN-only)   |
 | ntfy           | Pub/sub alert channel (`blog-publishers` topic) for cron failures + stale heartbeats | `http://ntfy.nwlab.home.arpa` (LAN-only)      |
 
-See [`flatcar-nwdesigns/docs/services.md`](flatcar-nwdesigns/docs/services.md#ntfy) for details.
+The whole observability stack lives inside the nwlab segment — no metrics shipped over the WireGuard tunnel to homelab. See [`flatcar-nwdesigns/docs/services.md`](flatcar-nwdesigns/docs/services.md#ntfy) for details.
 
 ## Web UIs
 

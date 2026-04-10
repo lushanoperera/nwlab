@@ -327,13 +327,13 @@ Routed via the existing `traefik-public` network on the `web` entrypoint. Rule: 
 
 Each file rotates at 50 MB, keeps 5 backups, and expires after 14 days.
 
-**Prometheus fan-out:** metrics pipeline additionally remote-writes to homelab Prometheus at `http://192.168.100.100:9090/api/v1/write` (override via `PROMETHEUS_REMOTE_WRITE_URL` in `.env`). Retry + sending queue configured so a homelab outage does not drop metrics permanently.
+**Prometheus fan-out:** metrics pipeline additionally remote-writes to the co-located Prometheus container on this same host at `http://prometheus:9090/api/v1/write` over the shared `observability` Docker bridge network (override via `PROMETHEUS_REMOTE_WRITE_URL` in `.env`). No cross-WireGuard or cross-host traffic. Retry + sending queue configured so brief Prometheus restarts do not drop metrics.
 
 ### Environment Variables
 
 | File | Variable | Description |
 |------|----------|-------------|
-| `.env` | `PROMETHEUS_REMOTE_WRITE_URL` | Override Prometheus remote-write endpoint (default: homelab flatcar-media) |
+| `.env` | `PROMETHEUS_REMOTE_WRITE_URL` | Override Prometheus remote-write endpoint (default: `http://prometheus:9090/api/v1/write`) |
 
 ### VM 103 client config
 
@@ -387,6 +387,127 @@ ssh disconnesso@10.21.21.103 "curl -v http://10.21.21.104:4318/v1/traces \
 ### Note on Claude Code `Monitor` tool
 
 The interactive-mode `Monitor` tool (CC ≥ 2.1.98) does **not** help headless `claude --print` runs — it cannot be hooked from outside a subprocess. Blog-publisher observability is instead built on `--output-format stream-json` parsing plus native OTEL telemetry emitted to this collector. See `ubuntu-desktop/CLAUDE.md` for the full pipeline notes.
+
+---
+
+## Prometheus
+
+**Purpose:** TSDB backend for the nwlab observability segment. Receives Claude Code metrics via `remote_write` from the co-located `otel-collector` container — both join the shared `observability` Docker bridge network so the collector targets `http://prometheus:9090/api/v1/write` directly. No scraping; no cross-WireGuard traffic.
+
+**URL:** Internal-only. Bound to `127.0.0.1:9090` on the host for ad-hoc local debugging via SSH tunnel:
+
+```bash
+ssh -L 9090:127.0.0.1:9090 core@10.21.21.104
+# then open http://localhost:9090 in a browser
+```
+
+**Container:** `prometheus` | **Config:** [`config/prometheus/docker-compose.yml`](../config/prometheus/docker-compose.yml), [`config/prometheus/prometheus.yml`](../config/prometheus/prometheus.yml)
+
+**Data:** Docker volume `prometheus_prometheus_data` mounted at `/prometheus`. Retention: `--storage.tsdb.retention.time=30d` and `--storage.tsdb.retention.size=10GB` (whichever hits first).
+
+**CLI flags of note:**
+- `--web.enable-remote-write-receiver` — enables the `/api/v1/write` ingestion endpoint
+- `--web.enable-lifecycle` — allows `POST /-/reload` for hot config reloads
+
+### Reload after config edit
+
+```bash
+ssh core@10.21.21.104 "curl -X POST http://localhost:9090/-/reload"
+```
+
+### Management Commands
+
+```bash
+# View logs
+ssh core@10.21.21.104 "sudo docker logs prometheus -f"
+
+# Restart
+ssh core@10.21.21.104 "cd /opt/prometheus && sudo /opt/bin/docker-compose restart"
+
+# Quick remote_write smoke test (Grafana datasource path)
+ssh core@10.21.21.104 "sudo docker exec grafana wget -qO- http://prometheus:9090/-/healthy"
+
+# List active series count
+ssh core@10.21.21.104 \
+  "curl -s http://localhost:9090/api/v1/query?query=count\(\{__name__=~\\\".+\\\"\}\) | jq .data.result"
+```
+
+---
+
+## Grafana
+
+**Purpose:** Dashboard frontend for the nwlab Prometheus backend. Provisioned with a single Prometheus datasource (`http://prometheus:9090`) and a starter "Blog Publishers — Claude Code Observability" dashboard (run count per site, success/failure pie, token usage, total cost in USD, p95 API duration, last-run timestamps).
+
+**URL:** http://grafana.nwlab.home.arpa (internal, LAN-only — NOT exposed via the Cloudflare tunnel; mirrors the ntfy routing pattern)
+
+**Container:** `grafana` | **Config:** [`config/grafana/docker-compose.yml`](../config/grafana/docker-compose.yml)
+
+**Data:** Docker volume `grafana_grafana_data` mounted at `/var/lib/grafana`.
+
+### Provisioning
+
+```
+config/grafana/provisioning/
+├── datasources/
+│   └── prometheus.yml          # Static Prometheus datasource (default)
+└── dashboards/
+    ├── dashboards.yml          # File provider → folder "NWLab"
+    └── blog-publishers.json    # Starter dashboard, uid `blog-publishers`
+```
+
+Edit JSON locally → rsync to flatcar-104 `/opt/grafana/provisioning/dashboards/` → Grafana reloads on its 30 s interval. The provisioned dashboard sets `allowUiUpdates: true` so live tweaks in the UI are not blown away on the next reload — but they are NOT persisted across container recreates unless saved back to the JSON file.
+
+### Login
+
+| Field | Value |
+|---|---|
+| URL | http://grafana.nwlab.home.arpa |
+| User | `admin` |
+| Password | `${GRAFANA_ADMIN_PASSWORD}` from `/opt/grafana/.env` |
+
+Bootstrap the password by writing `/opt/grafana/.env` with `GRAFANA_ADMIN_PASSWORD=<value>` before first `docker compose up -d`. Rotate from the Grafana UI (Server Admin → Users) afterward.
+
+### Datasource
+
+Static, provisioned, marked default and `editable: false`:
+
+| Field | Value |
+|---|---|
+| Name | Prometheus |
+| Type | prometheus |
+| URL | `http://prometheus:9090` |
+| Access | proxy |
+| HTTP Method | POST |
+| Time interval | 30s |
+
+Resolves via the `observability` Docker bridge network. If grafana logs show `dial tcp: lookup prometheus`, the prometheus stack is down or the network was not created — bring `/opt/prometheus/` up first.
+
+### Starter Dashboard
+
+`blog-publishers.json` assumes Claude Code native OTEL metric names following the `claude_code_*` Prometheus convention (dots → underscores). Panels:
+
+1. **Run count per site (last 24h)** — `sum by (service_instance_id) (increase(claude_code_session_count_total[24h]))`
+2. **Success vs failure (last 24h)** — donut chart, `claude_code_api_request_total` minus `claude_code_api_error_total`
+3. **Token usage (input + output)** — stacked bars by `service_instance_id` and `type`
+4. **Total cost (USD)** — single stat, `claude_code_cost_usage_USD_total`, thresholds at $5 / $20
+5. **p95 API request duration** — flags slow runs at risk of hitting the 600 s / 900 s publisher timeouts
+6. **Last-run timestamp per site** — surfaces silent gaps if a publisher stops reporting
+
+Exact metric and label names may need tweaking on first live data — see https://docs.claude.com/en/docs/claude-code/monitoring-usage.
+
+### Management Commands
+
+```bash
+# View logs
+ssh core@10.21.21.104 "sudo docker logs grafana -f"
+
+# Restart
+ssh core@10.21.21.104 "cd /opt/grafana && sudo /opt/bin/docker-compose restart"
+
+# Force a dashboard rescan (provisioner runs every 30s normally)
+ssh core@10.21.21.104 "sudo docker exec grafana curl -s http://localhost:3000/api/admin/provisioning/dashboards/reload \
+  -u admin:\$GRAFANA_ADMIN_PASSWORD -X POST"
+```
 
 ---
 

@@ -3,7 +3,9 @@ version: '3.8'
 # OpenTelemetry Collector — ingests telemetry from blog publishers running on
 # ubuntu-desktop (VM 103, 10.21.21.103). Exports to:
 #   - local NDJSON files at /opt/otel-collector/data/ (for jq forensics)
-#   - homelab Prometheus remote-write via the existing WireGuard overlay
+#   - co-located Prometheus on this same host (flatcar-104) via remote_write
+#     over the shared `observability` Docker bridge network — no cross-host
+#     or cross-WireGuard traffic.
 # Pipelines: metrics, traces, logs (all three fanned out to file + debug; metrics also
 # forwarded to Prometheus).
 
@@ -17,7 +19,7 @@ services:
     env_file:
       - .env
     environment:
-      - PROMETHEUS_REMOTE_WRITE_URL=${PROMETHEUS_REMOTE_WRITE_URL:-http://192.168.100.100:9090/api/v1/write}
+      - PROMETHEUS_REMOTE_WRITE_URL=${PROMETHEUS_REMOTE_WRITE_URL:-http://prometheus:9090/api/v1/write}
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
@@ -26,6 +28,7 @@ services:
       - /opt/otel-collector/data:/data
     networks:
       - traefik-public
+      - observability
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:13133/"]
       interval: 30s
@@ -35,4 +38,9 @@ services:
 
 networks:
   traefik-public:
+    external: true
+  # Shared with prometheus + grafana stacks on this host. Created by the
+  # prometheus stack — bring that up first.
+  observability:
+    name: observability
     external: true

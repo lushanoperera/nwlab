@@ -7,9 +7,10 @@
 # Exports:
 #   - file/metrics, file/traces, file/logs — rotating NDJSON under /data/*.jsonl
 #     (mapped to /opt/otel-collector/data/ on the host — tail/jq for forensics)
-#   - prometheusremotewrite — metrics forwarded to homelab Prometheus
-#     (flatcar-media 192.168.100.100:9090) via WireGuard overlay. Retry + queue
-#     so a homelab outage does not drop metrics permanently.
+#   - prometheusremotewrite — metrics forwarded to Prometheus co-located on
+#     flatcar-104 (`http://prometheus:9090/api/v1/write`) over the shared
+#     `observability` Docker bridge network. No cross-WG traffic. Retry + queue
+#     keep metrics durable across restarts.
 #   - debug — stdout, verbosity=basic, for container logs sanity-check.
 #
 # See flatcar-nwdesigns/docs/services.md for jq query examples.

@@ -25,12 +25,14 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 | **PostgreSQL** (×2) | Databases for n8n and Evolution API | `postgres:15-alpine` |
 | **Redis** | Cache for Evolution API | `redis:7-alpine` |
 | **Autoheal** | Auto-restarts unhealthy containers every 30s | `willfarrell/autoheal:latest` |
-| **OTel Collector** | Ingests telemetry from VM 103 blog-publisher cron jobs; exports to NDJSON files + homelab Prometheus remote-write | `otel/opentelemetry-collector-contrib:latest` |
+| **OTel Collector** | Ingests telemetry from VM 103 blog-publisher cron jobs; exports to NDJSON files + co-located Prometheus remote-write | `otel/opentelemetry-collector-contrib:latest` |
 | **ntfy** | Pub/sub alert channel for blog-publisher failures + stale heartbeats (topic `blog-publishers`) | `binwiederhier/ntfy:latest` |
+| **Prometheus** | TSDB backend for blog-publisher metrics; receives via remote_write from co-located otel-collector | `prom/prometheus:latest` |
+| **Grafana** | Dashboard frontend for the blog-publisher Prometheus backend; provisioned datasource + dashboard | `grafana/grafana:latest` |
 
 ## Network Topology
 
-14 containers across 8 stacks:
+16 containers across 10 stacks:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -60,6 +62,23 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
   ┌───────────┐  (host-only, no network — mounts Docker socket)
   │ autoheal  │
   └───────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                     observability network (bridge)                        │
+│                                                                           │
+│   ┌─────────────────┐  remote_write   ┌────────────┐  query   ┌────────┐ │
+│   │ otel-collector  │ ──────────────► │ prometheus │ ◄─────── │grafana │ │
+│   │ :4317 / :4318   │                 │   :9090    │          │ :3000  │ │
+│   └────────┬────────┘                 └────────────┘          └────────┘ │
+│            │                                                              │
+│            │ also joins traefik-public                                    │
+│            │ for healthcheck access                                       │
+│            ▼                                                              │
+│   (OTLP from VM 103 cron jobs via host port binds 4317/4318)              │
+└──────────────────────────────────────────────────────────────────────────┘
+
+  ntfy joins traefik-public; routed at http://ntfy.nwlab.home.arpa
+  grafana joins both networks; routed at http://grafana.nwlab.home.arpa
 ```
 
 ## Public Endpoints
@@ -100,10 +119,19 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 │   ├── config.yaml
 │   ├── .env                  # PROMETHEUS_REMOTE_WRITE_URL (optional)
 │   └── data/                 # NDJSON file exporter output (metrics/traces/logs)
-└── ntfy/                     # Blog-publisher alert channel
+├── ntfy/                     # Blog-publisher alert channel
+│   ├── docker-compose.yml
+│   ├── server.yml
+│   └── .env                  # NTFY_ADMIN_TOKEN (optional)
+├── prometheus/               # TSDB backend (remote_write target)
+│   ├── docker-compose.yml
+│   └── prometheus.yml
+└── grafana/                  # Dashboard frontend
     ├── docker-compose.yml
-    ├── server.yml
-    └── .env                  # NTFY_ADMIN_TOKEN (optional)
+    ├── .env                  # GRAFANA_ADMIN_PASSWORD
+    └── provisioning/
+        ├── datasources/prometheus.yml
+        └── dashboards/{dashboards.yml,blog-publishers.json}
 ```
 
 ## Docker Volumes
@@ -121,6 +149,11 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 | `/opt/vaultwarden/data` | vaultwarden | `/data` |
 | `/opt/crowdsec/db` | crowdsec | `/var/lib/crowdsec/data` |
 | `/opt/crowdsec/config` | crowdsec | `/etc/crowdsec` |
+| `ntfy_ntfy_cache` | ntfy | `/var/cache/ntfy` |
+| `ntfy_ntfy_etc` | ntfy | `/etc/ntfy` |
+| `/opt/otel-collector/data` | otel-collector | `/data` |
+| `prometheus_prometheus_data` | prometheus | `/prometheus` |
+| `grafana_grafana_data` | grafana | `/var/lib/grafana` |
 
 ## Cloudflare Tunnel
 
@@ -158,6 +191,8 @@ labels:
 | 9443 | Portainer | HTTPS UI (local access) |
 | 4317 | OTel Collector | OTLP gRPC — blog-publisher telemetry from VM 103 |
 | 4318 | OTel Collector | OTLP HTTP — blog-publisher telemetry from VM 103 |
+| 9090 (loopback) | Prometheus | `127.0.0.1:9090` only — local debugging via SSH tunnel; Grafana + collector talk via the `observability` Docker network |
+| 3000 (via traefik) | Grafana | Reachable as `http://grafana.nwlab.home.arpa` (LAN-only, NOT in Cloudflare tunnel) |
 
 ## Startup Order
 

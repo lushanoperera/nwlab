@@ -146,11 +146,22 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://10.21.21.104:4318
 
 ### Alert + telemetry endpoints (flatcar-nwdesigns VM 104)
 
+The **entire** observability stack — collector, ntfy, Prometheus, Grafana — runs
+on flatcar-104 (`10.21.21.104`). No metrics are shipped over the WireGuard tunnel
+to homelab; everything stays inside the nwlab segment.
+
 | Service | URL | Role |
 |---|---|---|
 | OTel Collector (gRPC) | `http://10.21.21.104:4317` | Preferred for headless Claude Code |
 | OTel Collector (HTTP) | `http://10.21.21.104:4318` | Fallback / debug |
 | ntfy | `http://ntfy.nwlab.home.arpa/blog-publishers` | Failure + stale-heartbeat alerts |
+| Prometheus | `127.0.0.1:9090` (via `ssh -L 9090:127.0.0.1:9090 core@10.21.21.104`) | TSDB backend (debug only) |
+| Grafana | `http://grafana.nwlab.home.arpa` | Dashboard frontend (LAN-only) |
+
+The OTLP endpoint URL the cron jobs target is unchanged
+(`http://10.21.21.104:4318`) — the collector simply remote_writes locally to
+`http://prometheus:9090/api/v1/write` over the shared `observability` Docker
+bridge instead of pushing across the WG link to flatcar-media.
 
 ### Monitor tool does not apply
 

@@ -1,0 +1,58 @@
+version: '3.8'
+
+# Grafana — dashboarding frontend for the nwlab observability backend.
+#
+# Reads from co-located Prometheus (`prometheus:9090`) over the shared
+# `observability` Docker bridge network. Provisioned datasource +
+# blog-publishers dashboard live in ./provisioning/.
+#
+# Routed via traefik on flatcar-nwdesigns at http://grafana.nwlab.home.arpa
+# (LAN-only — NOT exposed via the Cloudflare tunnel). Mirrors the ntfy
+# routing pattern.
+
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    hostname: grafana
+    restart: unless-stopped
+    mem_limit: 512m
+    env_file:
+      - .env
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_SERVER_ROOT_URL=http://grafana.nwlab.home.arpa
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - traefik-public
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.nwlab.home.arpa`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+volumes:
+  grafana_data:
+    driver: local
+
+networks:
+  traefik-public:
+    external: true
+  # Joined for `prometheus` DNS resolution. Created by the prometheus stack;
+  # bring that stack up first.
+  observability:
+    name: observability
+    external: true

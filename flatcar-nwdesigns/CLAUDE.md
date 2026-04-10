@@ -27,7 +27,7 @@ ssh core@10.21.21.104
 Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bouncer → Services
 ```
 
-## Services (14 containers, 8 stacks)
+## Services (16 containers, 10 stacks)
 | Service | Internal Port | Public URL |
 |---------|---------------|------------|
 | Vaultwarden | 80 | https://vaultwarden.nwdesigns.it |
@@ -37,10 +37,12 @@ Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bo
 | Traefik Dashboard | 8080 | https://traefik.nwdesigns.it |
 | ntfy | 80 | http://ntfy.nwlab.home.arpa (LAN-only) |
 | OTel Collector | 4317 / 4318 | http://10.21.21.104:4317 (gRPC) / :4318 (HTTP) |
+| Prometheus | 9090 | (internal — `127.0.0.1:9090` host bind only) |
+| Grafana | 3000 | http://grafana.nwlab.home.arpa (LAN-only) |
 
 Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres, evolution_postgres, evolution_redis.
 Infrastructure containers: autoheal (auto-restarts unhealthy containers every 30s).
-Observability containers: otel-collector, ntfy — blog-publisher telemetry + alerting for ubuntu-desktop (VM 103) cron jobs.
+Observability containers: otel-collector, ntfy, prometheus, grafana — full blog-publisher observability stack (telemetry → TSDB → dashboard + alerts) for ubuntu-desktop (VM 103) cron jobs. All four co-located on flatcar-104; no cross-WireGuard metric shipping.
 
 ## Security
 - All services protected via CrowdSec ForwardAuth middleware (`crowdsec-bouncer@docker`)
@@ -60,6 +62,8 @@ Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 | Portainer | `/opt/portainer/` | — |
 | OTel Collector | `/opt/otel-collector/` | `PROMETHEUS_REMOTE_WRITE_URL` (optional) |
 | ntfy | `/opt/ntfy/` | `NTFY_ADMIN_TOKEN` (optional) |
+| Prometheus | `/opt/prometheus/` | — |
+| Grafana | `/opt/grafana/` | `GRAFANA_ADMIN_PASSWORD` |
 
 ## Project Structure
 ```
@@ -85,10 +89,20 @@ Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 │   │   ├── docker-compose.yml
 │   │   ├── config.yaml
 │   │   └── .env.example
-│   └── ntfy/                    # Blog-publisher alert channel
+│   ├── ntfy/                    # Blog-publisher alert channel
+│   │   ├── docker-compose.yml
+│   │   ├── server.yml
+│   │   └── .env.example
+│   ├── prometheus/              # TSDB backend (remote_write target)
+│   │   ├── docker-compose.yml
+│   │   ├── prometheus.yml
+│   │   └── .env.example
+│   └── grafana/                 # Dashboard frontend
 │       ├── docker-compose.yml
-│       ├── server.yml
-│       └── .env.example
+│       ├── .env.example
+│       └── provisioning/
+│           ├── datasources/prometheus.yml
+│           └── dashboards/{dashboards.yml,blog-publishers.json}
 ├── docs/                        # Documentation
 │   ├── infrastructure.md        # Architecture overview
 │   └── services.md              # Service-specific docs
@@ -125,6 +139,7 @@ ssh core@10.21.21.104 "cd /opt/crowdsec && sudo /opt/bin/docker-compose restart"
 
 ## Key Config Notes
 - Docker network: `traefik-public` — all services must join for Traefik routing
+- Docker network: `observability` — internal bridge shared by `prometheus`, `grafana` and `otel-collector`. Created by the prometheus stack; bring it up before grafana / collector recreate.
 - Cloudflare Tunnel: `office-flatcar` — managed via [Zero Trust Dashboard](https://one.dash.cloudflare.com/)
 - Vaultwarden SMTP: Gmail (admin@nwdesigns.it) — app password in `.env`
 - Full service docs: [docs/services.md](docs/services.md) | Architecture: [docs/infrastructure.md](docs/infrastructure.md)
