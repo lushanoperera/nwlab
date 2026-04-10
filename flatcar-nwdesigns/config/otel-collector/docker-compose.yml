@@ -1,0 +1,38 @@
+version: '3.8'
+
+# OpenTelemetry Collector — ingests telemetry from blog publishers running on
+# ubuntu-desktop (VM 103, 10.21.21.103). Exports to:
+#   - local NDJSON files at /opt/otel-collector/data/ (for jq forensics)
+#   - homelab Prometheus remote-write via the existing WireGuard overlay
+# Pipelines: metrics, traces, logs (all three fanned out to file + debug; metrics also
+# forwarded to Prometheus).
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    env_file:
+      - .env
+    environment:
+      - PROMETHEUS_REMOTE_WRITE_URL=${PROMETHEUS_REMOTE_WRITE_URL:-http://192.168.100.100:9090/api/v1/write}
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - ./config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - /opt/otel-collector/data:/data
+    networks:
+      - traefik-public
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:13133/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+networks:
+  traefik-public:
+    external: true

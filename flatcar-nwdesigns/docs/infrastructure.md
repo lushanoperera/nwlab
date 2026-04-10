@@ -25,10 +25,12 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 | **PostgreSQL** (×2) | Databases for n8n and Evolution API | `postgres:15-alpine` |
 | **Redis** | Cache for Evolution API | `redis:7-alpine` |
 | **Autoheal** | Auto-restarts unhealthy containers every 30s | `willfarrell/autoheal:latest` |
+| **OTel Collector** | Ingests telemetry from VM 103 blog-publisher cron jobs; exports to NDJSON files + homelab Prometheus remote-write | `otel/opentelemetry-collector-contrib:latest` |
+| **ntfy** | Pub/sub alert channel for blog-publisher failures + stale heartbeats (topic `blog-publishers`) | `binwiederhier/ntfy:latest` |
 
 ## Network Topology
 
-12 containers across 6 stacks:
+14 containers across 8 stacks:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -91,8 +93,17 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 ├── evolution-api/
 │   ├── docker-compose.yml
 │   └── .env                  # AUTHENTICATION_API_KEY, POSTGRES_PASSWORD
-└── portainer/
-    └── docker-compose.yml
+├── portainer/
+│   └── docker-compose.yml
+├── otel-collector/           # Blog-publisher telemetry ingest
+│   ├── docker-compose.yml
+│   ├── config.yaml
+│   ├── .env                  # PROMETHEUS_REMOTE_WRITE_URL (optional)
+│   └── data/                 # NDJSON file exporter output (metrics/traces/logs)
+└── ntfy/                     # Blog-publisher alert channel
+    ├── docker-compose.yml
+    ├── server.yml
+    └── .env                  # NTFY_ADMIN_TOKEN (optional)
 ```
 
 ## Docker Volumes
@@ -145,6 +156,8 @@ labels:
 | 8080 | Traefik | Dashboard/API (local access only) |
 | 8000 | Portainer | Edge agent |
 | 9443 | Portainer | HTTPS UI (local access) |
+| 4317 | OTel Collector | OTLP gRPC — blog-publisher telemetry from VM 103 |
+| 4318 | OTel Collector | OTLP HTTP — blog-publisher telemetry from VM 103 |
 
 ## Startup Order
 

@@ -91,6 +91,77 @@ With balloon enabled, this VM returns up to 512 MB to the host when idle:
 - **Min**: 1536 MB (idle, balloon deflated)
 - **Zram**: 512 MB compressed swap helps balloon work smoothly
 
+## Blog publisher observability
+
+Five cron jobs run on this VM as the `disconnesso` user. Each shells out to
+`claude --print` (Max-subscription OAuth) via a Python wrapper.
+
+### Cron inventory
+
+| Schedule | Project | Script |
+|---|---|---|
+| `0 6 * * *` | officinewordpress.it | `~/Projects/officinewordpress.it/scripts/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) |
+| `0 7 * * *` | ambrosianomilano.it | `~/Projects/ambrosianomilano.it/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) |
+| `0 9 * * *` | old.costanzogoldtraders.com | `~/Projects/costanzogoldtraders.com/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) |
+| `0 10 * * 0` | officinewordpress refresh | `publisher.py --refresh` (via `scripts/cron-wrap.sh`) |
+| `0 8 1 * *` | officine brand-audit | `~/Projects/officinewordpress.it/scripts/brand-audit/audit.py` (via `scripts/cron-wrap.sh`) |
+
+Plus 3× `*/5 * * * * scripts/check-publisher-health.sh` and the `*/15 * * * *`
+brand-audit health check.
+
+### Heartbeat + last-run files
+
+Each project writes observability artifacts into its own `logs/` directory:
+
+| File | Written by | Purpose |
+|---|---|---|
+| `logs/heartbeat.json` | `generator.py` while Claude is streaming | `{stage, session_id, started_at, last_event_at, elapsed_s}` — cleared on clean exit |
+| `logs/last-run.json` | `publisher.py` at pipeline start | `{start_ts, pid, cron_tag, git_rev}` |
+| `logs/publisher.log` | Python orchestrator | Per-stage session IDs, token counts, retries |
+
+### Session replay
+
+Every stage of every run captures the Claude `session_id`. Resume the transcript
+locally via Claude Code's on-disk project history under `~/.claude/projects/`:
+
+```bash
+# Resume the most recent officine publisher run
+claude --resume "$(jq -r .session_id \
+  ~/Projects/officinewordpress.it/scripts/blog-publisher/logs/heartbeat.json)"
+```
+
+### Telemetry env
+
+Shared OTEL env lives in `/etc/profile.d/claude-telemetry.sh` (root-owned,
+sourced by each `scripts/cron-wrap.sh`):
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://10.21.21.104:4318
+# service.instance.id is set per-site inside each scripts/cron-wrap.sh
+```
+
+### Alert + telemetry endpoints (flatcar-nwdesigns VM 104)
+
+| Service | URL | Role |
+|---|---|---|
+| OTel Collector (gRPC) | `http://10.21.21.104:4317` | Preferred for headless Claude Code |
+| OTel Collector (HTTP) | `http://10.21.21.104:4318` | Fallback / debug |
+| ntfy | `http://ntfy.nwlab.home.arpa/blog-publishers` | Failure + stale-heartbeat alerts |
+
+### Monitor tool does not apply
+
+**Note:** The Claude Code `Monitor` tool (CC ≥ 2.1.98) is **interactive-only** —
+it lets an active CC session react to lines from a background `Bash` process
+it launched itself. It does **not** help headless `claude --print` cron runs,
+and there is no way for a headless `claude -p` process to expose a
+Monitor-compatible stream to any outside observer. We use `--output-format
+stream-json --include-partial-messages --verbose` parsing plus native OTEL
+telemetry instead. Do not re-investigate.
+
 ## Known Issues
 
 ### Active

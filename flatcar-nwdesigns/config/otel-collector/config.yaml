@@ -1,0 +1,96 @@
+# OpenTelemetry Collector configuration
+#
+# Data source: blog-publisher cron jobs on ubuntu-desktop (VM 103, 10.21.21.103).
+# Claude Code native OTEL (CLAUDE_CODE_ENABLE_TELEMETRY=1) emits metrics, logs and
+# traces to this collector at 10.21.21.104:4317 (gRPC) / :4318 (HTTP).
+#
+# Exports:
+#   - file/metrics, file/traces, file/logs — rotating NDJSON under /data/*.jsonl
+#     (mapped to /opt/otel-collector/data/ on the host — tail/jq for forensics)
+#   - prometheusremotewrite — metrics forwarded to homelab Prometheus
+#     (flatcar-media 192.168.100.100:9090) via WireGuard overlay. Retry + queue
+#     so a homelab outage does not drop metrics permanently.
+#   - debug — stdout, verbosity=basic, for container logs sanity-check.
+#
+# See flatcar-nwdesigns/docs/services.md for jq query examples.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: prod
+        action: upsert
+      - key: host.name
+        value: ubuntu-desktop
+        action: upsert
+
+exporters:
+  file/metrics:
+    path: /data/metrics.jsonl
+    rotation:
+      max_megabytes: 50
+      max_days: 14
+      max_backups: 5
+      localtime: true
+  file/traces:
+    path: /data/traces.jsonl
+    rotation:
+      max_megabytes: 50
+      max_days: 14
+      max_backups: 5
+      localtime: true
+  file/logs:
+    path: /data/logs.jsonl
+    rotation:
+      max_megabytes: 50
+      max_days: 14
+      max_backups: 5
+      localtime: true
+
+  prometheusremotewrite:
+    endpoint: ${env:PROMETHEUS_REMOTE_WRITE_URL}
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      queue_size: 5000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 60s
+      max_elapsed_time: 10m
+
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [file/metrics, prometheusremotewrite, debug]
+    traces:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [file/traces, debug]
+    logs:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [file/logs, debug]

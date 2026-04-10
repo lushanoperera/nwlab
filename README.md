@@ -20,10 +20,11 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 │  ┌──────────────────────────────┐  ┌─────────────────┐       │
 │  │ Flatcar VM 104               │  │ Ubuntu VM 103   │       │
 │  │ .104 │ Docker 28.0.4         │  │ .103 │ 26.04LTS │       │
-│  │ 12 containers / 6 stacks     │  │ Claude Code CLI │       │
-│  │ Traefik, CrowdSec,          │  │ (on-demand)     │       │
-│  │ Vaultwarden, n8n,           │  └─────────────────┘       │
-│  │ Evolution API, Portainer    │                            │
+│  │ 14 containers / 8 stacks     │  │ Claude Code CLI │       │
+│  │ Traefik, CrowdSec,          │  │ + blog-publisher│       │
+│  │ Vaultwarden, n8n,           │  │   cron jobs     │       │
+│  │ Evolution API, Portainer,   │  └─────────────────┘       │
+│  │ OTel Collector, ntfy        │                            │
 │  └──────────────────────────────┘                            │
 │                                                              │
 │  Host: wazuh-agent, prometheus, chrony, postfix, ksmtuned    │
@@ -38,8 +39,10 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | wireguard             | 10.21.21.100 | VPN gateway                         |
 | proxmox-backup-server | 10.21.21.101 | PBS for VM/LXC backups              |
 | timemachine-samba     | 10.21.21.102 | macOS Time Machine over SMB         |
-| ubuntu-desktop        | 10.21.21.103 | Claude Code workstation (on-demand) |
+| ubuntu-desktop        | 10.21.21.103 | Claude Code workstation + blog-publisher cron jobs |
 | flatcar-portainer     | 10.21.21.104 | Docker services (Flatcar Linux)     |
+| ntfy                  | 10.21.21.104 (http://ntfy.nwlab.home.arpa) | Blog-publisher alert channel (LAN-only) |
+| otel-collector        | 10.21.21.104 (:4317 / :4318) | Blog-publisher telemetry ingest (→ NDJSON + homelab Prometheus) |
 
 ## Web Interfaces
 
@@ -52,6 +55,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | Vaultwarden   | https://vaultwarden.nwdesigns.it |
 | n8n           | https://n8n.nwdesigns.it         |
 | Evolution API | https://evolution.nwdesigns.it   |
+| ntfy          | http://ntfy.nwlab.home.arpa      |
 
 ## Quick Start
 

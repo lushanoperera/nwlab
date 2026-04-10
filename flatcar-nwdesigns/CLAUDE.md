@@ -27,7 +27,7 @@ ssh core@10.21.21.104
 Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bouncer → Services
 ```
 
-## Services (12 containers, 6 stacks)
+## Services (14 containers, 8 stacks)
 | Service | Internal Port | Public URL |
 |---------|---------------|------------|
 | Vaultwarden | 80 | https://vaultwarden.nwdesigns.it |
@@ -35,9 +35,12 @@ Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bo
 | Evolution API | 8080 | https://evolution.nwdesigns.it |
 | Portainer | 9000 | https://portainer.nwdesigns.it |
 | Traefik Dashboard | 8080 | https://traefik.nwdesigns.it |
+| ntfy | 80 | http://ntfy.nwlab.home.arpa (LAN-only) |
+| OTel Collector | 4317 / 4318 | http://10.21.21.104:4317 (gRPC) / :4318 (HTTP) |
 
 Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres, evolution_postgres, evolution_redis.
 Infrastructure containers: autoheal (auto-restarts unhealthy containers every 30s).
+Observability containers: otel-collector, ntfy — blog-publisher telemetry + alerting for ubuntu-desktop (VM 103) cron jobs.
 
 ## Security
 - All services protected via CrowdSec ForwardAuth middleware (`crowdsec-bouncer@docker`)
@@ -55,6 +58,8 @@ Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 | n8n | `/opt/n8n/` | — |
 | Evolution API | `/opt/evolution-api/` | `AUTHENTICATION_API_KEY`, `POSTGRES_PASSWORD` |
 | Portainer | `/opt/portainer/` | — |
+| OTel Collector | `/opt/otel-collector/` | `PROMETHEUS_REMOTE_WRITE_URL` (optional) |
+| ntfy | `/opt/ntfy/` | `NTFY_ADMIN_TOKEN` (optional) |
 
 ## Project Structure
 ```
@@ -74,8 +79,16 @@ Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 │   ├── evolution-api/
 │   │   ├── docker-compose.yml
 │   │   └── .env.example
-│   └── portainer/
-│       └── docker-compose.yml
+│   ├── portainer/
+│   │   └── docker-compose.yml
+│   ├── otel-collector/          # Blog-publisher telemetry ingest (VM 103)
+│   │   ├── docker-compose.yml
+│   │   ├── config.yaml
+│   │   └── .env.example
+│   └── ntfy/                    # Blog-publisher alert channel
+│       ├── docker-compose.yml
+│       ├── server.yml
+│       └── .env.example
 ├── docs/                        # Documentation
 │   ├── infrastructure.md        # Architecture overview
 │   └── services.md              # Service-specific docs

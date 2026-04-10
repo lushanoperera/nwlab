@@ -53,6 +53,7 @@
 | 101  | LXC  | proxmox-backup-server | 10.21.21.101 | running | 1     | 256 MB (+512 swap)         | 10 GB   | local-lvm | yes       | 39%       |
 | 102  | LXC  | timemachine-samba     | 10.21.21.102 | running | 1     | 192 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 14%       |
 | 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 2     | 2048 MB (balloon min 1536) | 32 GB   | local-lvm | no        | —         |
+<!-- VM 103 runs five blog-publisher cron jobs (officine, ambrosiano, costanzo + refresh + brand-audit) with stream-json + OTEL → flatcar-104 otel-collector + ntfy alerts. See ubuntu-desktop/CLAUDE.md#blog-publisher-observability. -->
 | 104  | VM   | flatcar-portainer-104 | 10.21.21.104 | running | 2     | 4096 MB (balloon min 3072) | 28.5 GB | local-lvm | yes       | 33%       |
 
 ### Guest Bind Mounts
@@ -84,6 +85,15 @@
 | smartmontools            | Disk health monitoring     |                                                             |
 | ksmtuned                 | Kernel same-page merging   | Memory deduplication for VMs (KSM_THRES_COEF=50, activates >50% usage) |
 | zfs-zed                  | ZFS event daemon           |                                                             |
+
+### Observability (VM 104 containers)
+
+| Service        | Role                                                                          | Endpoint                                      |
+| -------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| otel-collector | Ingests Claude Code telemetry from VM 103 blog publishers; fans out to NDJSON files + homelab Prometheus remote-write | `http://10.21.21.104:4317` (gRPC) / `:4318` (HTTP) |
+| ntfy           | Pub/sub alert channel (`blog-publishers` topic) for cron failures + stale heartbeats | `http://ntfy.nwlab.home.arpa` (LAN-only)      |
+
+See [`flatcar-nwdesigns/docs/services.md`](flatcar-nwdesigns/docs/services.md#ntfy) for details.
 
 ## Web UIs
 

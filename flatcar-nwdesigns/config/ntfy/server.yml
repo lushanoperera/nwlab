@@ -1,0 +1,30 @@
+# ntfy server config — internal LAN alerting for nwlab blog publishers
+#
+# Default topic: `blog-publishers`
+# Reachable at http://ntfy.nwlab.home.arpa (via traefik on flatcar-nwdesigns).
+#
+# Auth posture: read-write by default. v1 simplification — the only producers
+# are blog-publisher cron-wrap.sh scripts on VM 103, already on the trusted
+# 10.21.21.0/24 segment behind the office LAN. If topic abuse ever becomes
+# an issue, flip `auth-default-access` to `deny-all` and issue a token
+# via `ntfy user add` + NTFY_ADMIN_TOKEN.
+
+base-url: "http://ntfy.nwlab.home.arpa"
+
+# Persistent cache for message history (bind-mounted to ntfy_cache volume)
+cache-file: "/var/cache/ntfy/cache.db"
+cache-duration: "24h"
+
+# User/token database (optional — empty by default)
+auth-file: "/var/cache/ntfy/auth.db"
+auth-default-access: "read-write"
+
+# Behind traefik
+behind-proxy: true
+
+# Listen
+listen-http: ":80"
+
+# Log
+log-level: "INFO"
+log-format: "text"

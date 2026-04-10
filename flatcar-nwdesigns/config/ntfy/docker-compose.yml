@@ -1,0 +1,49 @@
+version: '3.8'
+
+# ntfy — lightweight pub/sub alerting. Consumed by blog-publisher cron-wrap.sh
+# scripts on ubuntu-desktop (VM 103) to post failure alerts and stale-heartbeat
+# warnings on the `blog-publishers` topic.
+#
+# Internal-only route via the existing traefik-public network — NOT exposed
+# through the Cloudflare tunnel. Reachable at http://ntfy.nwlab.home.arpa
+# (LAN + WireGuard clients only).
+
+services:
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
+    mem_limit: 128m
+    command:
+      - serve
+    env_file:
+      - .env
+    environment:
+      - TZ=Europe/Amsterdam
+    volumes:
+      - ./server.yml:/etc/ntfy/server.yml:ro
+      - ntfy_cache:/var/cache/ntfy
+      - ntfy_etc:/etc/ntfy
+    networks:
+      - traefik-public
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ntfy.rule=Host(`ntfy.nwlab.home.arpa`)"
+      - "traefik.http.routers.ntfy.entrypoints=web"
+      - "traefik.http.services.ntfy.loadbalancer.server.port=80"
+
+volumes:
+  ntfy_cache:
+    driver: local
+  ntfy_etc:
+    driver: local
+
+networks:
+  traefik-public:
+    external: true

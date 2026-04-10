@@ -253,6 +253,143 @@ ssh core@10.21.21.104 "sudo docker exec crowdsec cscli hub update && sudo docker
 
 ---
 
+## ntfy
+
+**Purpose:** LAN-only pub/sub alert channel for blog-publisher failures and stale-heartbeat warnings emitted by cron jobs on `ubuntu-desktop` (VM 103).
+
+**URL:** http://ntfy.nwlab.home.arpa (internal — LAN + WireGuard clients only, NOT exposed via Cloudflare tunnel)
+
+**Container:** `ntfy` | **Config:** [`config/ntfy/docker-compose.yml`](../config/ntfy/docker-compose.yml)
+
+**Data:** Docker volumes `ntfy_ntfy_cache` (message cache) + `ntfy_ntfy_etc` (optional auth DB). Server config at [`config/ntfy/server.yml`](../config/ntfy/server.yml).
+
+### Topics
+
+| Topic | Producers | Consumers | Purpose |
+|-------|-----------|-----------|---------|
+| `blog-publishers` | `scripts/cron-wrap.sh` and `scripts/check-publisher-health.sh` in each blog-publisher project on VM 103 | Subscribed mobile/desktop ntfy clients | Non-zero-exit alerts (high priority, tag `rotating_light`) + stale-heartbeat warnings (tag `hourglass_flowing_sand`) |
+
+### Auth Posture
+
+v1 is intentionally `auth-default-access: read-write` — producers on the trusted 10.21.21.0/24 segment POST unauthenticated. If abuse ever becomes an issue, flip to `deny-all` and issue a token:
+
+```bash
+ssh core@10.21.21.104 "sudo docker exec -it ntfy ntfy user add publisher"
+ssh core@10.21.21.104 "sudo docker exec -it ntfy ntfy access publisher blog-publishers rw"
+```
+
+### Subscribing
+
+Any ntfy client (ntfy iOS/Android, `ntfy subscribe`, or plain `curl`) can subscribe to `http://ntfy.nwlab.home.arpa/blog-publishers` while connected to the office LAN or WireGuard.
+
+```bash
+# Smoke test from VM 103
+curl -fsS -d "smoke test" http://ntfy.nwlab.home.arpa/blog-publishers
+```
+
+### Management Commands
+
+```bash
+# View logs
+ssh core@10.21.21.104 "sudo docker logs ntfy -f"
+
+# Restart
+ssh core@10.21.21.104 "cd /opt/ntfy && sudo /opt/bin/docker-compose restart"
+
+# List topics currently cached
+ssh core@10.21.21.104 "sudo docker exec ntfy ntfy subscribe --poll blog-publishers | tail"
+```
+
+### Traefik Route
+
+Routed via the existing `traefik-public` network on the `web` entrypoint. Rule: `Host('ntfy.nwlab.home.arpa')`. No CrowdSec bouncer middleware (internal-only). No Cloudflare tunnel ingress — this hostname resolves on LAN only.
+
+---
+
+## OTel Collector
+
+**Purpose:** Ingests OpenTelemetry metrics, traces and logs emitted by `claude --print` (Claude Code native telemetry) running inside blog-publisher cron jobs on `ubuntu-desktop` (VM 103). Fans out to local NDJSON files for forensics and to homelab Prometheus for dashboarding.
+
+**Endpoints:**
+
+| Protocol | URL | Notes |
+|---|---|---|
+| OTLP gRPC | `http://10.21.21.104:4317` | Preferred for headless Claude Code runs |
+| OTLP HTTP | `http://10.21.21.104:4318` | Fallback / debug |
+| Health check | `http://10.21.21.104:13133/` | Used by container healthcheck |
+
+**Container:** `otel-collector` | **Config:** [`config/otel-collector/docker-compose.yml`](../config/otel-collector/docker-compose.yml), [`config/otel-collector/config.yaml`](../config/otel-collector/config.yaml)
+
+**Data Location:** `/opt/otel-collector/data/` on flatcar-nwdesigns — rotating NDJSON files:
+- `metrics.jsonl` — Claude Code session count, token usage, cost, API error counters
+- `traces.jsonl` — spans from Claude Code runs
+- `logs.jsonl` — Claude Code structured log events
+
+Each file rotates at 50 MB, keeps 5 backups, and expires after 14 days.
+
+**Prometheus fan-out:** metrics pipeline additionally remote-writes to homelab Prometheus at `http://192.168.100.100:9090/api/v1/write` (override via `PROMETHEUS_REMOTE_WRITE_URL` in `.env`). Retry + sending queue configured so a homelab outage does not drop metrics permanently.
+
+### Environment Variables
+
+| File | Variable | Description |
+|------|----------|-------------|
+| `.env` | `PROMETHEUS_REMOTE_WRITE_URL` | Override Prometheus remote-write endpoint (default: homelab flatcar-media) |
+
+### VM 103 client config
+
+Blog-publisher cron wrappers source `/etc/profile.d/claude-telemetry.sh` which exports:
+
+```bash
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://10.21.21.104:4318
+```
+
+Per-site `service.instance.id` is set by each project's `scripts/cron-wrap.sh` via `OTEL_RESOURCE_ATTRIBUTES`.
+
+### jq Forensics
+
+Query a specific site's logs from the NDJSON file exporter output:
+
+```bash
+# All log events for officinewordpress
+ssh core@10.21.21.104 \
+  "sudo jq 'select(.resourceLogs[].resource.attributes[] | select(.key==\"service.instance.id\" and .value.stringValue==\"officinewordpress\"))' \
+   /opt/otel-collector/data/logs.jsonl"
+
+# Last N metric points for costanzogoldtraders
+ssh core@10.21.21.104 \
+  "sudo tail -n 500 /opt/otel-collector/data/metrics.jsonl | \
+   jq 'select(.resourceMetrics[].resource.attributes[] | select(.key==\"service.instance.id\" and .value.stringValue==\"costanzogoldtraders\"))'"
+
+# Count API errors across all sites in the last file
+ssh core@10.21.21.104 \
+  "sudo jq '.resourceLogs[].scopeLogs[].logRecords[] | select(.severityText==\"ERROR\") | .body.stringValue' \
+   /opt/otel-collector/data/logs.jsonl | wc -l"
+```
+
+### Management Commands
+
+```bash
+# View logs (debug exporter verbosity=basic)
+ssh core@10.21.21.104 "sudo docker logs otel-collector -f"
+
+# Restart after config changes
+ssh core@10.21.21.104 "cd /opt/otel-collector && sudo /opt/bin/docker-compose restart"
+
+# Probe the OTLP HTTP endpoint (should return 400 Bad Request — endpoint live)
+ssh disconnesso@10.21.21.103 "curl -v http://10.21.21.104:4318/v1/traces \
+  -H 'content-type: application/json' -d '{}' 2>&1 | tail -5"
+```
+
+### Note on Claude Code `Monitor` tool
+
+The interactive-mode `Monitor` tool (CC ≥ 2.1.98) does **not** help headless `claude --print` runs — it cannot be hooked from outside a subprocess. Blog-publisher observability is instead built on `--output-format stream-json` parsing plus native OTEL telemetry emitted to this collector. See `ubuntu-desktop/CLAUDE.md` for the full pipeline notes.
+
+---
+
 ## Autoheal
 
 **Purpose:** Monitors all containers with healthchecks and auto-restarts unhealthy ones every 30s.
