@@ -77,8 +77,12 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 │   (OTLP from VM 103 cron jobs via host port binds 4317/4318)              │
 └──────────────────────────────────────────────────────────────────────────┘
 
-  ntfy joins traefik-public; routed at http://ntfy.nwlab.home.arpa
-  grafana joins both networks; routed at http://grafana.nwlab.home.arpa
+  caddy joins both traefik-public + observability (bridge mode, :443 only)
+    → wildcard LE cert for *.nwlab.nwdesigns.it via Cloudflare DNS-01
+    → reverse-proxies ntfy, grafana, prometheus over internal docker DNS
+  ntfy joins traefik-public; routed at https://ntfy.nwlab.nwdesigns.it
+  grafana joins both networks; routed at https://grafana.nwlab.nwdesigns.it
+  prometheus stays on observability; routed at https://prometheus.nwlab.nwdesigns.it
 ```
 
 ## Public Endpoints
@@ -126,12 +130,21 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 ├── prometheus/               # TSDB backend (remote_write target)
 │   ├── docker-compose.yml
 │   └── prometheus.yml
-└── grafana/                  # Dashboard frontend
-    ├── docker-compose.yml
-    ├── .env                  # GRAFANA_ADMIN_PASSWORD
-    └── provisioning/
-        ├── datasources/prometheus.yml
-        └── dashboards/{dashboards.yml,blog-publishers.json}
+├── grafana/                  # Dashboard frontend
+│   ├── docker-compose.yml
+│   ├── .env                  # GRAFANA_ADMIN_PASSWORD
+│   └── provisioning/
+│       ├── datasources/prometheus.yml
+│       └── dashboards/{dashboards.yml,blog-publishers.json}
+└── caddy/                    # Internal wildcard TLS reverse proxy
+    ├── docker-compose.yml    # Bridge mode, :443 only (no :80 — http_port 8090)
+    ├── Dockerfile            # caddy:2 + caddy-dns/cloudflare plugin
+    ├── entrypoint.sh         # Reads /run/secrets/cloudflare_api_token → CF_API_TOKEN
+    ├── Caddyfile             # *.nwlab.nwdesigns.it wildcard site block
+    ├── sites/nwlab.caddy     # Per-subdomain matchers (ntfy, grafana, prometheus)
+    ├── secrets/cloudflare_api_token  # 0600; scoped CF token (Zone:Read + DNS:Edit on nwdesigns.it)
+    ├── data/                 # Caddy on-disk state (cert cache, OCSP staples)
+    └── config/               # Caddy runtime config cache
 ```
 
 ## Docker Volumes
@@ -187,12 +200,15 @@ labels:
 |------|---------|---------|
 | 80 | Traefik | HTTP ingress (used by Cloudflare tunnel) |
 | 8080 | Traefik | Dashboard/API (local access only) |
+| 443 | Caddy | Internal wildcard TLS for `*.nwlab.nwdesigns.it` (LE via Cloudflare DNS-01) |
 | 8000 | Portainer | Edge agent |
 | 9443 | Portainer | HTTPS UI (local access) |
 | 4317 | OTel Collector | OTLP gRPC — blog-publisher telemetry from VM 103 |
 | 4318 | OTel Collector | OTLP HTTP — blog-publisher telemetry from VM 103 |
-| 9090 (loopback) | Prometheus | `127.0.0.1:9090` only — local debugging via SSH tunnel; Grafana + collector talk via the `observability` Docker network |
-| 3000 (via traefik) | Grafana | Reachable as `http://grafana.nwlab.home.arpa` (LAN-only, NOT in Cloudflare tunnel) |
+| 9090 (loopback) | Prometheus | `127.0.0.1:9090` — kept for SSH-tunnel debugging; Caddy + Grafana + collector use the `observability` Docker network hostname |
+| 3000 (internal) | Grafana | Via Caddy at `https://grafana.nwlab.nwdesigns.it` (LAN-only, NOT in Cloudflare tunnel) |
+
+**Port collision note:** Caddy binds `:443` but NOT `:80` — the Caddyfile's `http_port 8090` parks Caddy's otherwise-default :80 listener on an unused host-internal port so it doesn't collide with Traefik. Traefik keeps sole ownership of host :80 + :8080 and the Cloudflare tunnel for public `*.nwdesigns.it` services. ACME HTTP-01 fallback is never used because the wildcard cert is issued via DNS-01.
 
 ## Startup Order
 

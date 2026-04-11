@@ -1,5 +1,4 @@
 {
-  "__comment": "Blog Publisher observability dashboard. Assumes Claude Code native OpenTelemetry metrics are being remote-written into Prometheus by the otel-collector co-located on flatcar-nwdesigns (VM 104). The CC native metric names follow the 'claude_code_*' Prometheus-flavored convention (dots → underscores). Metric names used here: claude_code_session_count, claude_code_cost_usage_USD_total, claude_code_token_usage_tokens_total, claude_code_api_request_duration_seconds, claude_code_api_error. service.instance.id labels split per site (officinewordpress / ambrosianomilano / costanzogoldtraders). Exact metric and label names may need tweaking on first live data — see https://docs.claude.com/en/docs/claude-code/monitoring-usage.",
   "annotations": {
     "list": [
       {
@@ -28,7 +27,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Number of Claude Code sessions started per site in the last 24h. Backs publisher run counts.",
+      "description": "Number of Claude Code sessions started per site in the last 24h. OTLP→Prom translation exposes service.instance.id as the `instance` label.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -73,8 +72,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (service_instance_id) (increase(claude_code_session_count_total[24h]))",
-          "legendFormat": "{{service_instance_id}}",
+          "expr": "sum by (instance) (increase(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h]))",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
@@ -87,7 +86,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Successful vs failed Claude Code API requests. Failures approximated via claude_code_api_error_total.",
+      "description": "Claude Code API errors per site (last 24h). Best-effort success signal: Claude Code native OTEL does not emit a per-session success/failure counter, so we surface raw error counts alongside session counts instead.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -131,8 +130,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(claude_code_api_request_total[24h])) - sum(increase(claude_code_api_error_total[24h]))",
-          "legendFormat": "success",
+          "expr": "sum by (instance) (increase(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h]))",
+          "legendFormat": "{{instance}} sessions",
           "range": true,
           "refId": "A"
         },
@@ -142,13 +141,13 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(claude_code_api_error_total[24h]))",
-          "legendFormat": "failure",
+          "expr": "sum(increase(claude_code_api_error_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h])) OR on() vector(0)",
+          "legendFormat": "api errors",
           "range": true,
           "refId": "B"
         }
       ],
-      "title": "Success vs failure (last 24h)",
+      "title": "Sessions vs API errors (last 24h)",
       "type": "piechart"
     },
     {
@@ -156,7 +155,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total input + output tokens consumed per site over the dashboard time range.",
+      "description": "Total input + output tokens consumed per site over the dashboard time range. Split by the native `type` label (input/output/cacheRead/cacheCreation).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -232,8 +231,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (service_instance_id, type) (increase(claude_code_token_usage_tokens_total[$__range]))",
-          "legendFormat": "{{service_instance_id}} / {{type}}",
+          "expr": "sum by (instance, type) (increase(claude_code_token_usage_tokens_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
+          "legendFormat": "{{instance}} / {{type}}",
           "range": true,
           "refId": "A"
         }
@@ -246,7 +245,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total Claude Code cost in USD across all sites for the dashboard time range.",
+      "description": "Total Claude Code cost in USD, broken down per site over the dashboard time range.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -291,7 +290,7 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "textMode": "value_and_name"
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -301,13 +300,13 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(increase(claude_code_cost_usage_USD_total[$__range]))",
-          "legendFormat": "total",
+          "expr": "sum by (instance) (increase(claude_code_cost_usage_USD_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Total cost (USD)",
+      "title": "Total cost per site (USD)",
       "type": "stat"
     },
     {
@@ -315,7 +314,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "p95 duration of Claude Code API requests per site. Useful for spotting slow runs that risk hitting the 600s/900s publisher timeouts.",
+      "description": "Cost breakdown per site × model. Claude Code native OTEL tags every cost sample with the model (e.g. claude-haiku-4-5-20251001, claude-sonnet-4-6) so we can see which site leans on which tier.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -327,8 +326,8 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -336,7 +335,7 @@
               "viz": false
             },
             "lineInterpolation": "linear",
-            "lineWidth": 2,
+            "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
@@ -345,7 +344,7 @@
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "none"
+              "mode": "normal"
             },
             "thresholdsStyle": {
               "mode": "off"
@@ -361,7 +360,7 @@
               }
             ]
           },
-          "unit": "s"
+          "unit": "currencyUSD"
         },
         "overrides": []
       },
@@ -374,7 +373,7 @@
       "id": 5,
       "options": {
         "legend": {
-          "calcs": ["mean", "max"],
+          "calcs": ["sum"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -391,13 +390,13 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (service_instance_id, le) (rate(claude_code_api_request_duration_seconds_bucket[10m])))",
-          "legendFormat": "{{service_instance_id}}",
+          "expr": "sum by (instance, model) (increase(claude_code_cost_usage_USD_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
+          "legendFormat": "{{instance}} / {{model}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "p95 API request duration",
+      "title": "Cost by site × model",
       "type": "timeseries"
     },
     {
@@ -452,8 +451,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "timestamp(last_over_time(claude_code_session_count_total[7d])) * 1000",
-          "legendFormat": "{{service_instance_id}}",
+          "expr": "timestamp(last_over_time(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[7d])) * 1000",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
@@ -477,6 +476,6 @@
   "timezone": "Europe/Rome",
   "title": "Blog Publishers — Claude Code Observability",
   "uid": "blog-publishers",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

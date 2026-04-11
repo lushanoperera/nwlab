@@ -82,6 +82,21 @@ extensions:
 
 service:
   extensions: [health_check]
+  telemetry:
+    # Collector's own internal metrics (queue depth, send failures, refused
+    # points) exposed as a Prometheus endpoint on :8888. Scraped by the
+    # co-located Prometheus over the `observability` bridge — see
+    # ../prometheus/prometheus.yml. Lets us alert on
+    # otelcol_exporter_send_failed_metric_points / sending_queue saturation
+    # instead of rediscovering delta-temporality or pipeline bugs by eye.
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
   pipelines:
     metrics:
       receivers: [otlp]

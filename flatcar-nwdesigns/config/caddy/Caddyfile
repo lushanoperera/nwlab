@@ -1,0 +1,19 @@
+{
+	email admin@nwdesigns.it
+	admin :2019
+	http_port 8090
+	https_port 443
+}
+
+*.nwlab.nwdesigns.it {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+
+	import sites/*.caddy
+
+	# Catch-all for undefined subdomains
+	handle {
+		respond "Not Found" 404
+	}
+}

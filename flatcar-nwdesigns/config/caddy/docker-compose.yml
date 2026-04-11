@@ -1,0 +1,37 @@
+services:
+  caddy:
+    build: .
+    image: caddy-cloudflare-nwlab:latest
+    container_name: caddy
+    restart: unless-stopped
+    mem_limit: 192m
+    ports:
+      - "443:443"
+    environment:
+      - TZ=Europe/Rome
+    secrets:
+      - cloudflare_api_token
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - /opt/caddy/data:/data
+      - /opt/caddy/config:/config
+    networks:
+      - traefik-public    # reaches ntfy
+      - observability     # reaches grafana + prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  traefik-public:
+    external: true
+  observability:
+    external: true
+
+secrets:
+  cloudflare_api_token:
+    file: ./secrets/cloudflare_api_token

@@ -154,14 +154,13 @@ to homelab; everything stays inside the nwlab segment.
 |---|---|---|
 | OTel Collector (gRPC) | `http://10.21.21.104:4317` | Preferred for headless Claude Code |
 | OTel Collector (HTTP) | `http://10.21.21.104:4318` | Fallback / debug |
-| ntfy | `http://ntfy.nwlab.home.arpa/blog-publishers` | Failure + stale-heartbeat alerts |
-| Prometheus | `127.0.0.1:9090` (via `ssh -L 9090:127.0.0.1:9090 core@10.21.21.104`) | TSDB backend (debug only) |
-| Grafana | `http://grafana.nwlab.home.arpa` | Dashboard frontend (LAN-only) |
+| ntfy | `https://ntfy.nwlab.nwdesigns.it/blog-publishers` | Failure + stale-heartbeat alerts |
+| Prometheus | `https://prometheus.nwlab.nwdesigns.it` (and `127.0.0.1:9090` via `ssh -L 9090:127.0.0.1:9090 core@10.21.21.104`) | TSDB backend |
+| Grafana | `https://grafana.nwlab.nwdesigns.it` | Dashboard frontend (LAN-only) |
 
-The OTLP endpoint URL the cron jobs target is unchanged
-(`http://10.21.21.104:4318`) — the collector simply remote_writes locally to
-`http://prometheus:9090/api/v1/write` over the shared `observability` Docker
-bridge instead of pushing across the WG link to flatcar-media.
+The OTLP endpoint the cron jobs target is **still raw TCP at `http://10.21.21.104:4318`** — OTLP traffic does NOT go through Caddy. The collector binds host ports `4317`/`4318` directly and receives plain OTLP/HTTP from VM 103. Only the ntfy alert channel and the Grafana UI moved behind the new `https://*.nwlab.nwdesigns.it` Caddy routes.
+
+`*.nwlab.nwdesigns.it` resolves via public Cloudflare DNS (A record → private 10.21.21.104). No split-horizon and no `/etc/hosts` overrides required — the office LAN's upstream resolver (Cloudflare / Google public DNS) returns the private IP because that is what the record contains. Any LAN-connected client (workstation, phone on office WiFi, WireGuard peer) can resolve the name without extra configuration.
 
 ### Monitor tool does not apply
 

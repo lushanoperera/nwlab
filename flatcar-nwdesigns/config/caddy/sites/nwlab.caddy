@@ -1,0 +1,18 @@
+# nwlab internal services — reverse-proxied by the shared wildcard site block.
+# Backends resolved via Docker service names over the joined bridge networks
+# (`traefik-public` for ntfy, `observability` for grafana + prometheus).
+
+@grafana host grafana.nwlab.nwdesigns.it
+handle @grafana {
+	reverse_proxy grafana:3000
+}
+
+@ntfy host ntfy.nwlab.nwdesigns.it
+handle @ntfy {
+	reverse_proxy ntfy:80
+}
+
+@prometheus host prometheus.nwlab.nwdesigns.it
+handle @prometheus {
+	reverse_proxy prometheus:9090
+}

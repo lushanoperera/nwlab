@@ -4,9 +4,11 @@ version: '3.8'
 # scripts on ubuntu-desktop (VM 103) to post failure alerts and stale-heartbeat
 # warnings on the `blog-publishers` topic.
 #
-# Internal-only route via the existing traefik-public network — NOT exposed
-# through the Cloudflare tunnel. Reachable at http://ntfy.nwlab.home.arpa
-# (LAN + WireGuard clients only).
+# Internal-only route via Caddy on flatcar-nwdesigns at
+# https://ntfy.nwlab.nwdesigns.it (wildcard LE cert via Cloudflare DNS-01,
+# LAN + WireGuard clients only — NOT exposed through the Cloudflare tunnel).
+# Traefik labels remain in place for a 24h soak period as a rollback path;
+# removed in a follow-up commit once Caddy is proven.
 
 services:
   ntfy:

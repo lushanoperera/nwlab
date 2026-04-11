@@ -92,8 +92,10 @@
 | -------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
 | otel-collector | Ingests Claude Code telemetry from VM 103 blog publishers; fans out to NDJSON files + co-located Prometheus remote-write | `http://10.21.21.104:4317` (gRPC) / `:4318` (HTTP) |
 | prometheus     | TSDB backend; receives metrics via remote_write from otel-collector on the shared `observability` Docker bridge | `127.0.0.1:9090` (LAN-only via SSH tunnel)    |
-| grafana        | Dashboard frontend; provisioned Prometheus datasource + blog-publishers dashboard | `http://grafana.nwlab.home.arpa` (LAN-only)   |
-| ntfy           | Pub/sub alert channel (`blog-publishers` topic) for cron failures + stale heartbeats | `http://ntfy.nwlab.home.arpa` (LAN-only)      |
+| grafana        | Dashboard frontend; provisioned Prometheus datasource + blog-publishers dashboard | `https://grafana.nwlab.nwdesigns.it` (LAN-only) |
+| ntfy           | Pub/sub alert channel (`blog-publishers` topic) for cron failures + stale heartbeats | `https://ntfy.nwlab.nwdesigns.it` (LAN-only)    |
+| prometheus     | Now also reachable via Caddy at `https://prometheus.nwlab.nwdesigns.it` for ad-hoc queries | (in addition to the loopback SSH-tunnel path) |
+| caddy          | Bridge-mode reverse proxy; wildcard LE cert for `*.nwlab.nwdesigns.it` via Cloudflare DNS-01 | `https://*.nwlab.nwdesigns.it` (LAN-only)     |
 
 The whole observability stack lives inside the nwlab segment — no metrics shipped over the WireGuard tunnel to homelab. See [`flatcar-nwdesigns/docs/services.md`](flatcar-nwdesigns/docs/services.md#ntfy) for details.
 

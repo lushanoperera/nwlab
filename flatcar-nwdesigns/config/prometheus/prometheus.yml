@@ -25,4 +25,13 @@ scrape_configs:
       - targets:
           - localhost:9090
 
+  # otel-collector self-telemetry — exposes otelcol_exporter_*,
+  # otelcol_processor_*, otelcol_receiver_* on :8888. Resolved via the
+  # shared `observability` bridge network. Alerting on these prevents
+  # silent pipeline regressions (delta-temporality, queue saturation, etc.).
+  - job_name: otel-collector
+    static_configs:
+      - targets:
+          - otel-collector:8888
+
   # Placeholder for future scrape jobs (node_exporter, cadvisor, etc.).

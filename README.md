@@ -42,10 +42,11 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | timemachine-samba     | 10.21.21.102 | macOS Time Machine over SMB         |
 | ubuntu-desktop        | 10.21.21.103 | Claude Code workstation + blog-publisher cron jobs |
 | flatcar-portainer     | 10.21.21.104 | Docker services (Flatcar Linux)     |
-| ntfy                  | 10.21.21.104 (http://ntfy.nwlab.home.arpa) | Blog-publisher alert channel (LAN-only) |
-| otel-collector        | 10.21.21.104 (:4317 / :4318) | Blog-publisher telemetry ingest (→ NDJSON + co-located Prometheus) |
-| prometheus            | 10.21.21.104 (127.0.0.1:9090, observability bridge) | TSDB backend for blog-publisher metrics |
-| grafana               | 10.21.21.104 (http://grafana.nwlab.home.arpa) | Dashboard frontend (LAN-only) |
+| caddy                 | 10.21.21.104 (:443) | Internal wildcard TLS reverse proxy for `*.nwlab.nwdesigns.it` (LE via Cloudflare DNS-01) |
+| ntfy                  | 10.21.21.104 (https://ntfy.nwlab.nwdesigns.it) | Blog-publisher alert channel (LAN-only, via Caddy) |
+| otel-collector        | 10.21.21.104 (:4317 / :4318 OTLP direct; :8888 self-metrics) | Blog-publisher telemetry ingest (→ NDJSON + co-located Prometheus) |
+| prometheus            | 10.21.21.104 (https://prometheus.nwlab.nwdesigns.it + 127.0.0.1:9090) | TSDB backend for blog-publisher metrics |
+| grafana               | 10.21.21.104 (https://grafana.nwlab.nwdesigns.it) | Dashboard frontend (LAN-only, via Caddy) |
 
 ## Web Interfaces
 
@@ -58,8 +59,9 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | Vaultwarden   | https://vaultwarden.nwdesigns.it |
 | n8n           | https://n8n.nwdesigns.it         |
 | Evolution API | https://evolution.nwdesigns.it   |
-| ntfy          | http://ntfy.nwlab.home.arpa      |
-| Grafana       | http://grafana.nwlab.home.arpa   |
+| ntfy          | https://ntfy.nwlab.nwdesigns.it       |
+| Grafana       | https://grafana.nwlab.nwdesigns.it    |
+| Prometheus    | https://prometheus.nwlab.nwdesigns.it |
 
 ## Quick Start
 

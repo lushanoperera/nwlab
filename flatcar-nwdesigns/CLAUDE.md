@@ -24,10 +24,13 @@ ssh core@10.21.21.104
 
 ## Architecture
 ```
-Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bouncer → Services
+Public:   Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bouncer → *.nwdesigns.it
+Internal: LAN/WG   → Cloudflare DNS (A *.nwlab → 10.21.21.104) → Caddy (:443) → *.nwlab.nwdesigns.it
 ```
 
-## Services (16 containers, 10 stacks)
+Both reverse proxies share flatcar-104 but don't collide: Traefik owns :80 + :8080 for the public Cloudflare tunnel, Caddy owns :443 for internal wildcard TLS (LE cert via Cloudflare DNS-01). Caddy runs in bridge mode and joins both `traefik-public` and `observability` docker networks to reach the backends.
+
+## Services (17 containers, 11 stacks)
 | Service | Internal Port | Public URL |
 |---------|---------------|------------|
 | Vaultwarden | 80 | https://vaultwarden.nwdesigns.it |
@@ -35,10 +38,11 @@ Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → CrowdSec Bo
 | Evolution API | 8080 | https://evolution.nwdesigns.it |
 | Portainer | 9000 | https://portainer.nwdesigns.it |
 | Traefik Dashboard | 8080 | https://traefik.nwdesigns.it |
-| ntfy | 80 | http://ntfy.nwlab.home.arpa (LAN-only) |
-| OTel Collector | 4317 / 4318 | http://10.21.21.104:4317 (gRPC) / :4318 (HTTP) |
-| Prometheus | 9090 | (internal — `127.0.0.1:9090` host bind only) |
-| Grafana | 3000 | http://grafana.nwlab.home.arpa (LAN-only) |
+| Caddy (internal wildcard) | 443 | `https://*.nwlab.nwdesigns.it` (LAN-only) |
+| ntfy | 80 | https://ntfy.nwlab.nwdesigns.it (LAN-only, via Caddy) |
+| OTel Collector | 4317 / 4318 / 8888 | http://10.21.21.104:4317 (gRPC) / :4318 (HTTP); :8888 self-telemetry scraped by Prometheus |
+| Prometheus | 9090 | https://prometheus.nwlab.nwdesigns.it (LAN-only, via Caddy); still loopback-bound at `127.0.0.1:9090` for SSH tunnel |
+| Grafana | 3000 | https://grafana.nwlab.nwdesigns.it (LAN-only, via Caddy) |
 
 Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres, evolution_postgres, evolution_redis.
 Infrastructure containers: autoheal (auto-restarts unhealthy containers every 30s).
@@ -64,6 +68,7 @@ Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 | ntfy | `/opt/ntfy/` | `NTFY_ADMIN_TOKEN` (optional) |
 | Prometheus | `/opt/prometheus/` | — |
 | Grafana | `/opt/grafana/` | `GRAFANA_ADMIN_PASSWORD` |
+| Caddy (internal wildcard TLS) | `/opt/caddy/` | `cloudflare_api_token` (Docker secret file at `/opt/caddy/secrets/cloudflare_api_token`, chmod 600) |
 
 ## Project Structure
 ```

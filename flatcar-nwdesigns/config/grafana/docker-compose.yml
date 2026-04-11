@@ -6,9 +6,11 @@ version: '3.8'
 # `observability` Docker bridge network. Provisioned datasource +
 # blog-publishers dashboard live in ./provisioning/.
 #
-# Routed via traefik on flatcar-nwdesigns at http://grafana.nwlab.home.arpa
-# (LAN-only — NOT exposed via the Cloudflare tunnel). Mirrors the ntfy
-# routing pattern.
+# Routed via Caddy on flatcar-nwdesigns at https://grafana.nwlab.nwdesigns.it
+# (LAN-only — NOT exposed via the Cloudflare tunnel). Wildcard LE cert via
+# Cloudflare DNS-01. Traefik labels remain for a 24h soak period so the old
+# http://grafana.nwlab.home.arpa path keeps working as a rollback; removed
+# in a follow-up commit once Caddy is proven.
 
 services:
   grafana:
@@ -25,7 +27,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
-      - GF_SERVER_ROOT_URL=http://grafana.nwlab.home.arpa
+      - GF_SERVER_ROOT_URL=https://grafana.nwlab.nwdesigns.it
+      - GF_SERVER_SERVE_FROM_SUB_PATH=false
     volumes:
       - grafana_data:/var/lib/grafana
       - ./provisioning:/etc/grafana/provisioning:ro

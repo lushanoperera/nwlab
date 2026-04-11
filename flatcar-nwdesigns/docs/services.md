@@ -257,7 +257,7 @@ ssh core@10.21.21.104 "sudo docker exec crowdsec cscli hub update && sudo docker
 
 **Purpose:** LAN-only pub/sub alert channel for blog-publisher failures and stale-heartbeat warnings emitted by cron jobs on `ubuntu-desktop` (VM 103).
 
-**URL:** http://ntfy.nwlab.home.arpa (internal — LAN + WireGuard clients only, NOT exposed via Cloudflare tunnel)
+**URL:** https://ntfy.nwlab.nwdesigns.it (internal — LAN + WireGuard clients only, NOT exposed via Cloudflare tunnel)
 
 **Container:** `ntfy` | **Config:** [`config/ntfy/docker-compose.yml`](../config/ntfy/docker-compose.yml)
 
@@ -280,11 +280,11 @@ ssh core@10.21.21.104 "sudo docker exec -it ntfy ntfy access publisher blog-publ
 
 ### Subscribing
 
-Any ntfy client (ntfy iOS/Android, `ntfy subscribe`, or plain `curl`) can subscribe to `http://ntfy.nwlab.home.arpa/blog-publishers` while connected to the office LAN or WireGuard.
+Any ntfy client (ntfy iOS/Android, `ntfy subscribe`, or plain `curl`) can subscribe to `https://ntfy.nwlab.nwdesigns.it/blog-publishers` while connected to the office LAN or WireGuard. The hostname resolves on public Cloudflare DNS to the private 10.21.21.104 address, so any LAN resolver returns the correct IP without split-horizon tricks.
 
 ```bash
 # Smoke test from VM 103
-curl -fsS -d "smoke test" http://ntfy.nwlab.home.arpa/blog-publishers
+curl -fsS -d "smoke test" https://ntfy.nwlab.nwdesigns.it/blog-publishers
 ```
 
 ### Management Commands
@@ -300,9 +300,11 @@ ssh core@10.21.21.104 "cd /opt/ntfy && sudo /opt/bin/docker-compose restart"
 ssh core@10.21.21.104 "sudo docker exec ntfy ntfy subscribe --poll blog-publishers | tail"
 ```
 
-### Traefik Route
+### Routing
 
-Routed via the existing `traefik-public` network on the `web` entrypoint. Rule: `Host('ntfy.nwlab.home.arpa')`. No CrowdSec bouncer middleware (internal-only). No Cloudflare tunnel ingress — this hostname resolves on LAN only.
+**Primary path:** Caddy (see [Caddy](#caddy) below). Caddy joins the `traefik-public` network to reverse-proxy `https://ntfy.nwlab.nwdesigns.it` → `ntfy:80`. Wildcard LE cert via Cloudflare DNS-01, no CrowdSec bouncer (internal-only), no Cloudflare tunnel ingress — the hostname resolves on public DNS but points at the private 10.21.21.104 IP.
+
+**Fallback path (soak only):** The original Traefik labels on the ntfy container remain in place for ~24h after the Caddy rollout so `http://ntfy.nwlab.home.arpa` keeps working as a rollback if Caddy cert issuance or the wildcard DNS record has any issue. Removed in a follow-up commit once the new path is proven.
 
 ---
 
@@ -436,9 +438,9 @@ ssh core@10.21.21.104 \
 
 ## Grafana
 
-**Purpose:** Dashboard frontend for the nwlab Prometheus backend. Provisioned with a single Prometheus datasource (`http://prometheus:9090`) and a starter "Blog Publishers — Claude Code Observability" dashboard (run count per site, success/failure pie, token usage, total cost in USD, p95 API duration, last-run timestamps).
+**Purpose:** Dashboard frontend for the nwlab Prometheus backend. Provisioned with a single Prometheus datasource (`http://prometheus:9090`) and a "Blog Publishers — Claude Code Observability" dashboard — run count per site, sessions vs API errors, token usage, cost per site, cost by site × model, last-run timestamps. Panel queries use the `instance` label (OTLP→Prom translation of `service.instance.id`).
 
-**URL:** http://grafana.nwlab.home.arpa (internal, LAN-only — NOT exposed via the Cloudflare tunnel; mirrors the ntfy routing pattern)
+**URL:** https://grafana.nwlab.nwdesigns.it (internal, LAN-only — served by Caddy with a wildcard LE cert via Cloudflare DNS-01, NOT exposed via the Cloudflare tunnel)
 
 **Container:** `grafana` | **Config:** [`config/grafana/docker-compose.yml`](../config/grafana/docker-compose.yml)
 
@@ -461,7 +463,7 @@ Edit JSON locally → rsync to flatcar-104 `/opt/grafana/provisioning/dashboards
 
 | Field | Value |
 |---|---|
-| URL | http://grafana.nwlab.home.arpa |
+| URL | https://grafana.nwlab.nwdesigns.it |
 | User | `admin` |
 | Password | `${GRAFANA_ADMIN_PASSWORD}` from `/opt/grafana/.env` |
 
@@ -482,18 +484,18 @@ Static, provisioned, marked default and `editable: false`:
 
 Resolves via the `observability` Docker bridge network. If grafana logs show `dial tcp: lookup prometheus`, the prometheus stack is down or the network was not created — bring `/opt/prometheus/` up first.
 
-### Starter Dashboard
+### Dashboard Panels
 
-`blog-publishers.json` assumes Claude Code native OTEL metric names following the `claude_code_*` Prometheus convention (dots → underscores). Panels:
+`blog-publishers.json` uses Claude Code native OTEL metrics as translated by the OTLP→Prom receiver — label is `instance` (NOT `service_instance_id`). Current panels:
 
-1. **Run count per site (last 24h)** — `sum by (service_instance_id) (increase(claude_code_session_count_total[24h]))`
-2. **Success vs failure (last 24h)** — donut chart, `claude_code_api_request_total` minus `claude_code_api_error_total`
-3. **Token usage (input + output)** — stacked bars by `service_instance_id` and `type`
-4. **Total cost (USD)** — single stat, `claude_code_cost_usage_USD_total`, thresholds at $5 / $20
-5. **p95 API request duration** — flags slow runs at risk of hitting the 600 s / 900 s publisher timeouts
-6. **Last-run timestamp per site** — surfaces silent gaps if a publisher stops reporting
+1. **Run count per site (last 24h)** — `sum by (instance) (increase(claude_code_session_count_total{instance=~".*(officine|ambrosiano|costanzo).*"}[24h]))`
+2. **Sessions vs API errors (last 24h)** — donut chart comparing `claude_code_session_count_total` against `claude_code_api_error_total`. Claude Code native OTEL has no per-session success/failure counter, so raw error counts are the best-effort signal.
+3. **Token usage** — stacked bars by `instance` and `type` using `claude_code_token_usage_tokens_total`
+4. **Total cost per site (USD)** — stat panel by `instance` using `claude_code_cost_usage_USD_total`, thresholds at $5 / $20
+5. **Cost by site × model** — stacked bars by `instance` and `model` label (Claude Code tags every cost sample with the model name, e.g. `claude-haiku-4-5-20251001`, `claude-sonnet-4-6`)
+6. **Last-run timestamp per site** — `timestamp(last_over_time(...))` surfaces silent gaps
 
-Exact metric and label names may need tweaking on first live data — see https://docs.claude.com/en/docs/claude-code/monitoring-usage.
+The p95 API duration panel was removed — Claude Code native OTEL does not export a request-duration histogram. Re-add if/when `claude_code_api_request_duration_seconds_bucket` shows up in `http://localhost:9090/api/v1/label/__name__/values`.
 
 ### Management Commands
 
@@ -508,6 +510,88 @@ ssh core@10.21.21.104 "cd /opt/grafana && sudo /opt/bin/docker-compose restart"
 ssh core@10.21.21.104 "sudo docker exec grafana curl -s http://localhost:3000/api/admin/provisioning/dashboards/reload \
   -u admin:\$GRAFANA_ADMIN_PASSWORD -X POST"
 ```
+
+---
+
+## Caddy
+
+**Purpose:** Internal wildcard TLS reverse proxy for nwlab-only services (`*.nwlab.nwdesigns.it`). Sits alongside Traefik on flatcar-104 — Traefik keeps the public Cloudflare tunnel path for `*.nwdesigns.it`, Caddy serves the internal LAN with browser-trusted Let's Encrypt certificates so mobile ntfy subscribers and browsers stop seeing HTTP warnings.
+
+**URL:** `https://*.nwlab.nwdesigns.it` (LAN + WireGuard only — A record points at private 10.21.21.104 on public Cloudflare DNS, grey-cloud / DNS-only, no proxy)
+
+**Container:** `caddy` | **Stack:** [`config/caddy/`](../config/caddy/)
+
+### Network & Port Layout
+
+Caddy runs in **bridge mode**, NOT host mode — flatcar-104 already has Traefik owning host `:80`/`:8080` for the public tunnel. Caddy binds only `:443` on the host and joins two docker networks for backend DNS:
+
+- `traefik-public` → reaches `ntfy`
+- `observability` → reaches `grafana`, `prometheus`, `otel-collector`
+
+The Caddyfile sets `http_port 8090` so Caddy's default :80 listener (which it opens for ACME HTTP-01 fallback even when DNS-01 is configured) parks on an unused internal port and does not collide with Traefik. ACME HTTP-01 is never used because the wildcard certificate is issued entirely via **Cloudflare DNS-01**.
+
+### TLS
+
+Single wildcard certificate for `*.nwlab.nwdesigns.it` issued by Let's Encrypt via the `caddy-dns/cloudflare` plugin. The plugin needs a scoped Cloudflare API token with `Zone:Read` + `DNS:Edit` on the `nwdesigns.it` zone — **not** the same token as `CLOUDFLARE_TUNNEL_TOKEN`.
+
+The token lives as a Docker secret file at `/opt/caddy/secrets/cloudflare_api_token` (chmod 600, gitignored via `config/caddy/.gitignore`). `entrypoint.sh` reads `/run/secrets/cloudflare_api_token` into the `CF_API_TOKEN` env var that the Caddyfile's `tls { dns cloudflare {env.CF_API_TOKEN} }` directive interpolates.
+
+Caddy's on-disk state (cert cache, OCSP staples, account data) lives in host-mounted volumes `/opt/caddy/data` and `/opt/caddy/config`.
+
+### Sites
+
+Per-subdomain matchers live in [`config/caddy/sites/nwlab.caddy`](../config/caddy/sites/nwlab.caddy):
+
+| Hostname | Backend | Notes |
+|---|---|---|
+| `grafana.nwlab.nwdesigns.it` | `grafana:3000` | Via `observability` network |
+| `ntfy.nwlab.nwdesigns.it` | `ntfy:80` | Via `traefik-public` network |
+| `prometheus.nwlab.nwdesigns.it` | `prometheus:9090` | Via `observability` network |
+
+Anything not matched falls through to `handle { respond "Not Found" 404 }` at the wildcard-site level. Add future services by appending a new `@name host ...` matcher to `sites/nwlab.caddy` and redeploying — no Caddyfile root edit required.
+
+### Manual prerequisites (one-time)
+
+Before the stack can come up:
+
+1. **Cloudflare API token** at https://dash.cloudflare.com/profile/api-tokens → Create Custom token
+   - Permissions: `Zone / Zone / Read` + `Zone / DNS / Edit`
+   - Zone Resources: `Include / Specific zone / nwdesigns.it`
+   - TTL: no expiry
+2. **Wildcard DNS A record** in the Cloudflare `nwdesigns.it` zone
+   - Name: `*.nwlab`, Type: `A`, IPv4: `10.21.21.104`, Proxy: DNS only (grey cloud)
+
+### Management Commands
+
+```bash
+# Build + start (first deploy)
+ssh core@10.21.21.104 "cd /opt/caddy && sudo /opt/bin/docker-compose build && sudo /opt/bin/docker-compose up -d"
+
+# View logs (cert issuance + ACME challenge output)
+ssh core@10.21.21.104 "sudo docker logs caddy -f"
+
+# Validate Caddyfile
+ssh core@10.21.21.104 "sudo docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile"
+
+# Hot reload after editing Caddyfile / sites/*.caddy (no container recreate)
+ssh core@10.21.21.104 "sudo docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile"
+
+# Check issued cert metadata from a workstation
+curl -sS -o /dev/null -w "http=%{http_code} tls=%{ssl_verify_result}\n" https://grafana.nwlab.nwdesigns.it/api/health
+```
+
+### Rollback
+
+The original Traefik `Host('*.nwlab.home.arpa')` labels on ntfy + grafana are kept in place for ~24h after the initial Caddy rollout to give a clean fallback. During the soak both paths resolve:
+
+- New: `https://*.nwlab.nwdesigns.it` via Caddy (Cloudflare DNS-01)
+- Old: `http://*.nwlab.home.arpa` via Traefik + `/etc/hosts` overrides on flatcar-104 + VM 103
+
+Once the new path is proven for 24h, a follow-up commit strips the Traefik labels from the ntfy/grafana compose files and removes the `/etc/hosts` overrides on both hosts.
+
+### Observability
+
+No self-metrics wired yet — Caddy exposes Prometheus metrics on its admin endpoint (`:2019/metrics`) but a dedicated scrape job is out of scope for this rollout. Follow-up: add a `caddy` scrape target to [`config/prometheus/prometheus.yml`](../config/prometheus/prometheus.yml) once the first cert-related incident happens.
 
 ---
 
