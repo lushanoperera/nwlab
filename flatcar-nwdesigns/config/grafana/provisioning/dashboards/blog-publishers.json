@@ -27,7 +27,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Number of Claude Code sessions started per site in the last 24h. OTLP→Prom translation exposes service.instance.id as the `instance` label.",
+      "description": "Number of Claude Code sessions per site in the last 24h. Claude Code emits claude_code_session_count_total once per session with a unique session_id label, so we count distinct series rather than using increase().",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -58,7 +58,7 @@
         "displayMode": "gradient",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["sum"],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -72,9 +72,10 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (increase(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h]))",
+          "expr": "count by (instance) (count_over_time(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h]))",
           "legendFormat": "{{instance}}",
-          "range": true,
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -86,7 +87,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Claude Code API errors per site (last 24h). Best-effort success signal: Claude Code native OTEL does not emit a per-session success/failure counter, so we surface raw error counts alongside session counts instead.",
+      "description": "Total tokens consumed per site in the last 24h (all types combined). Each session emits one sample per type; sum_over_time + sum-by-instance gives us the true per-site total.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -113,7 +114,7 @@
         },
         "pieType": "donut",
         "reduceOptions": {
-          "calcs": ["sum"],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -130,24 +131,14 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (increase(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h]))",
-          "legendFormat": "{{instance}} sessions",
-          "range": true,
+          "expr": "sum by (instance) (sum_over_time(claude_code_token_usage_tokens_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h]))",
+          "legendFormat": "{{instance}}",
+          "range": false,
+          "instant": true,
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(increase(claude_code_api_error_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[24h])) OR on() vector(0)",
-          "legendFormat": "api errors",
-          "range": true,
-          "refId": "B"
         }
       ],
-      "title": "Sessions vs API errors (last 24h)",
+      "title": "Tokens per site (last 24h)",
       "type": "piechart"
     },
     {
@@ -155,41 +146,11 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total input + output tokens consumed per site over the dashboard time range. Split by the native `type` label (input/output/cacheRead/cacheCreation).",
+      "description": "Token usage split by site and type (input / output / cacheRead / cacheCreation) over the dashboard range.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
           },
           "mappings": [],
           "thresholds": {
@@ -213,17 +174,16 @@
       },
       "id": 3,
       "options": {
-        "legend": {
-          "calcs": ["sum"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "showUnfilled": true
       },
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
@@ -231,21 +191,22 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance, type) (increase(claude_code_token_usage_tokens_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
+          "expr": "sum by (instance, type) (sum_over_time(claude_code_token_usage_tokens_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
           "legendFormat": "{{instance}} / {{type}}",
-          "range": true,
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
-      "title": "Token usage (input + output)",
-      "type": "timeseries"
+      "title": "Token usage by site × type",
+      "type": "bargauge"
     },
     {
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total Claude Code cost in USD, broken down per site over the dashboard time range.",
+      "description": "Total Claude Code cost in USD broken down per site over the dashboard range.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -282,7 +243,7 @@
       "id": 4,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -300,9 +261,10 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (increase(claude_code_cost_usage_USD_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
+          "expr": "sum by (instance) (sum_over_time(claude_code_cost_usage_USD_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
           "legendFormat": "{{instance}}",
-          "range": true,
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
@@ -314,41 +276,11 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Cost breakdown per site × model. Claude Code native OTEL tags every cost sample with the model (e.g. claude-haiku-4-5-20251001, claude-sonnet-4-6) so we can see which site leans on which tier.",
+      "description": "Cost broken down by site × model. Claude Code tags every cost sample with the model name so we can see which site leans on which tier (haiku vs sonnet vs opus).",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
           },
           "mappings": [],
           "thresholds": {
@@ -372,17 +304,16 @@
       },
       "id": 5,
       "options": {
-        "legend": {
-          "calcs": ["sum"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "showUnfilled": true
       },
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
@@ -390,37 +321,52 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance, model) (increase(claude_code_cost_usage_USD_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
+          "expr": "sum by (instance, model) (sum_over_time(claude_code_cost_usage_USD_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range]))",
           "legendFormat": "{{instance}} / {{model}}",
-          "range": true,
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
       "title": "Cost by site × model",
-      "type": "timeseries"
+      "type": "bargauge"
     },
     {
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Time of the most recent Claude Code session recorded per site. If a site stops reporting, this tile highlights the gap.",
+      "description": "Recent activity indicator — number of sessions observed in the last 10 minutes per site. Non-zero means the site ran recently. Zero for prolonged periods during expected run windows is the signal to investigate stalled cron jobs.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "idle",
+                  "color": "text"
+                }
+              }
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "text",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
               }
             ]
           },
-          "unit": "dateTimeFromNow"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -451,13 +397,14 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "timestamp(last_over_time(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[7d])) * 1000",
+          "expr": "count by (instance) (count_over_time(claude_code_session_count_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[10m]))",
           "legendFormat": "{{instance}}",
-          "range": true,
+          "range": false,
+          "instant": true,
           "refId": "A"
         }
       ],
-      "title": "Last-run timestamp per site",
+      "title": "Runs in last 10 minutes",
       "type": "stat"
     }
   ],
@@ -476,6 +423,6 @@
   "timezone": "Europe/Rome",
   "title": "Blog Publishers — Claude Code Observability",
   "uid": "blog-publishers",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }

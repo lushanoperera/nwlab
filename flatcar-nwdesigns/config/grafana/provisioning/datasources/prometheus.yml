@@ -2,8 +2,17 @@
 # https://grafana.com/docs/grafana/latest/administration/provisioning/#data-sources
 apiVersion: 1
 
+# Force-delete any stale pre-UID-pinned Prometheus datasource before
+# recreating below. Required because the initial deploy (without a
+# hard-coded uid:) caused Grafana to auto-generate a random UID, and the
+# provisioner otherwise errors with "data source not found" on UID change.
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
 datasources:
   - name: Prometheus
+    uid: prometheus
     type: prometheus
     access: proxy
     # Resolves via the shared `observability` Docker network on flatcar-104.
