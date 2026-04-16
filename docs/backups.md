@@ -42,11 +42,13 @@ This prevents VMID collisions (both environments use 100-104) and ensures nwlab'
 
 ## Schedule
 
-| Time  | Operation          | Details                                            |
-| ----- | ------------------ | -------------------------------------------------- |
-| 01:00 | vzdump             | Backs up LXC 100, 102 + VM 103, 104 to `pbs-nwlab` |
-| 03:00 | Garbage Collection | PBS removes unreferenced chunks from `home-backup` |
-| 04:00 | Remote Sync (push) | PBS pushes `home-backup` → homelab `nwlab-backup`  |
+| Time      | Operation                  | Details                                             |
+| --------- | -------------------------- | --------------------------------------------------- |
+| 01:00     | vzdump                     | Backs up LXC 100, 102 + VM 103, 104 to `pbs-nwlab`  |
+| 03:00     | Garbage Collection         | PBS removes unreferenced chunks from `home-backup`   |
+| 04:00     | Remote Sync (push)         | PBS pushes `home-backup` → homelab `nwlab-backup`    |
+| Sat 18:15 | Verify (`home-backup`)     | Checksums all chunks; skips verified, re-checks ≥30d |
+| Sun 18:15 | Verify (`homelab-sync`)    | Checksums all chunks; skips verified, re-checks ≥30d |
 
 ## Backed-Up Guests
 
