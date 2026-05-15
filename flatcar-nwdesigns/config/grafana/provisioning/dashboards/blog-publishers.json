@@ -406,6 +406,76 @@
       ],
       "title": "Runs in last 10 minutes",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Total Claude headless cost as % of the configured monthly credit ($100 on Max 5x, effective 2026-06-15). Dashboard time picker should be set to the active Anthropic billing cycle (resets on day 19).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(sum_over_time(claude_code_cost_usage_USD_total{instance=~\".*(officine|ambrosiano|costanzo).*\"}[$__range])) / $ceiling_usd * 100",
+          "legendFormat": "utilization",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Billing-cycle credit utilization",
+      "type": "stat"
     }
   ],
   "refresh": "1m",
@@ -413,7 +483,20 @@
   "style": "dark",
   "tags": ["nwlab", "claude-code", "blog-publisher"],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "100",
+          "value": "100"
+        },
+        "hide": 2,
+        "name": "ceiling_usd",
+        "query": "100",
+        "skipUrlSync": false,
+        "type": "constant"
+      }
+    ]
   },
   "time": {
     "from": "now-24h",
@@ -423,6 +506,6 @@
   "timezone": "Europe/Rome",
   "title": "Blog Publishers — Claude Code Observability",
   "uid": "blog-publishers",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
