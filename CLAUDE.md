@@ -32,8 +32,8 @@
 ### Disks
 
 - **sda** (238.5 GB SSD): PVE boot, LVM (root + swap + thinpool)
-- **sdb + sdc** (2x 2.7 TB): ZFS mirror pool `storage`
-  - **sdc is USB** — **FAULTED** (21 read / 14 checksum errors, too many errors). Mirror is DEGRADED. Replacement needed.
+- **sdb + sdc** (2x 2.7 TB): ZFS mirror pool `storage` — ONLINE, both vdevs healthy
+  - **sdc is USB** — currently ONLINE, 0 errors. Last scrub 2026-05-15 repaired 128K with 0 residual errors. Historically unstable (see Resolved); keep watch.
 
 ### ZFS Datasets
 
@@ -140,7 +140,6 @@ See [`docs/commands.md`](docs/commands.md) — SSH, storage, guest management, b
 ## Warnings
 
 - **Pending kernel update**: Running 6.17.4-1-pve, 6.17.9-1-pve installed. Reboot needed.
-- **ZFS USB disk FAULTED**: `usb-External_USB3.0_20170331000D1` has 21 read / 14 checksum errors — marked FAULTED ("too many errors"). Mirror pool `storage` is **DEGRADED** but functional on single disk. **Replace urgently.** Last scrub (2026-03-08) repaired 2.41M with 0 residual errors.
 - **homelab-sync approaching quota**: 192 GB used of 300 GB quota (108 GB remaining). Monitor growth.
 - **Stale PBS self-backup**: Last LXC 101 backup is from 2025-09-30 (6 months old, not in backup job). Add to `nwlab-daily` or run manual `vzdump 101`.
 - **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
@@ -152,6 +151,7 @@ See [`docs/commands.md`](docs/commands.md) — SSH, storage, guest management, b
 - ~~LXC 101 disk~~ (2026-02-20): Cleaned up, now 39%.
 - ~~Host RAM pressure~~ (2026-02-25): LXCs right-sized, KSM re-enabled, zram-tuned swappiness, balloon enabled. Now ~66% used.
 - ~~RAM upgrade~~ (2026-04-09): 8→16 GB dual-channel. Zram reduced 50%→15% (~2.3 GB), KSM threshold relaxed 95→50, balloon mins raised (103: 1024→1536, 104: 2560→3072).
+- ~~ZFS USB disk FAULTED~~ (2026-05-15): `usb-External_USB3.0_20170331000D1` back ONLINE. Scrub repaired 128K, 0 residual errors, mirror pool `storage` ONLINE on both vdevs. USB historically unstable — keep monitoring.
 
 ## Backup Strategy
 
