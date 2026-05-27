@@ -6,7 +6,7 @@
 - **IP**: 10.21.21.99
 - **Web UI**: https://10.21.21.99:8006
 - **Location**: NWDesigns office
-- **PVE Version**: 9.1.11 (running kernel 6.17.13-7-pve, 6.17.13-9-pve installed — reboot pending; PVE 9.2 + kernel 7.0 fused upgrade deferred to on-site window)
+- **PVE Version**: 9.2.2 (running kernel 7.0.2-6-pve, 6.17.13-11-pve retained as GRUB fallback)
 - **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz)
 - **RAM**: 15.5 GB dual-channel (~39% used)
 - **SSH**: `ssh root@10.21.21.99`
@@ -52,7 +52,7 @@
 | 100  | LXC  | wireguard             | 10.21.21.100 | running | 1     | 128 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 46%       |
 | 101  | LXC  | proxmox-backup-server | 10.21.21.101 | running | 1     | 256 MB (+512 swap)         | 10 GB   | local-lvm | yes       | 39%       |
 | 102  | LXC  | timemachine-samba     | 10.21.21.102 | running | 1     | 192 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 14%       |
-| 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 2     | 2048 MB (balloon min 1536) | 32 GB   | local-lvm | no        | —         |
+| 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 2     | 2048 MB (balloon min 1536) | 32 GB   | local-lvm | yes       | —         |
 <!-- VM 103 runs five blog-publisher cron jobs (officine, ambrosiano, costanzo + refresh + brand-audit) with stream-json + OTEL → flatcar-104 otel-collector + ntfy alerts. See ubuntu-desktop/CLAUDE.md#blog-publisher-observability. -->
 | 104  | VM   | flatcar-portainer-104 | 10.21.21.104 | running | 2     | 4096 MB (balloon min 3072) | 28.5 GB | local-lvm | yes       | 33%       |
 
@@ -139,10 +139,10 @@ See [`docs/commands.md`](docs/commands.md) — SSH, storage, guest management, b
 
 ## Warnings
 
-- **Pending kernel update**: Running 6.17.13-7-pve, 6.17.13-9-pve installed. Reboot needed. Also PVE 9.2 + opt-in `proxmox-kernel-7.0` (7.0.2-6) available — fused upgrade plan ready, deferred until next on-site visit (single-host + remote WG path = no safe out-of-band recovery if reboot fails).
 - **homelab-sync approaching quota**: 192 GB used of 300 GB quota (108 GB remaining). Monitor growth.
 - **Firewall disabled**: PVE firewall service running but policy disabled. No active rules.
 - **PBS sync-job list bug**: `proxmox-backup-manager sync-job list` returns `[]` even though the `nwlab-to-homelab` push job exists and runs daily. Use `sync-job show nwlab-to-homelab` instead.
+- **otel-collector healthcheck false-positive**: Docker healthcheck calls `wget` which isn't in the otel/opentelemetry-collector-contrib image; container reports `unhealthy` but service is healthy and accepting OTLP traffic. Pre-existing config bug, not an outage signal.
 
 ### Resolved
 
@@ -152,6 +152,7 @@ See [`docs/commands.md`](docs/commands.md) — SSH, storage, guest management, b
 - ~~RAM upgrade~~ (2026-04-09): 8→16 GB dual-channel. Zram reduced 50%→15% (~2.3 GB), KSM threshold relaxed 95→50, balloon mins raised (103: 1024→1536, 104: 2560→3072).
 - ~~ZFS USB disk FAULTED~~ (2026-05-15): `usb-External_USB3.0_20170331000D1` back ONLINE. Scrub repaired 128K, 0 residual errors, mirror pool `storage` ONLINE on both vdevs. USB historically unstable — keep monitoring.
 - ~~Stale PBS self-backup~~ (2026-05-22): LXC 101 added to `nwlab-daily` job (vmid 100,101,102,103,104) + ad-hoc PBS snapshot `ct/101/2026-05-22T19:58:35Z` taken pre-upgrade-window.
+- ~~PVE 9.2.2 + kernel 7.0~~ (2026-05-27): bundled on-site catch-up. 215 apt pkgs upgraded, `proxmox-ve` meta 9.0.0→9.2.0, `proxmox-kernel-7.0.2-6-pve` installed (6.17.13-11-pve retained in GRUB Advanced submenu as fallback). ZFS userland 2.3.4-pve1 → 2.4.2-pve1 aligned with kmod. `zpool storage` feature flags upgraded (`redaction_list_spill`, `raidz_expansion`, `fast_dedup`, `longname`, `large_microzap`). All 5 guests verified post-reboot (WG handshakes green, PBS UI 200, Grafana 200, Portainer 200). PkgWatt ~8.2 W under typical guest load — no community-reported idle-power regression on i5-6200U.
 
 ## Backup Strategy
 
