@@ -68,7 +68,7 @@ patch so `README.md`, `CLAUDE.md`, and the guest subtree do not drift.
 
 **No secrets file in this repo.** No deploy tokens or credentials are stored here. SSH access uses the
 operator's own keys (`ssh <user>@<ip>`, user depends on guest OS). If secrets are ever added, use a
-gitignored `.env` populated from an `.env.example` template (varlock + rbw — see
+gitignored `.env` populated from an `.env.example` template (plain `.env` policy — see
 `~/.claude/rules/secrets-management.md`). `.gitignore` already excludes `.env` and `.env.*` (keeping
 `!.env.example`). Never commit secrets, tokens, or raw `.env` files, and sanitize copied command
 output before pasting it into a doc.
