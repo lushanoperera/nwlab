@@ -20,7 +20,7 @@ Caddy reverse proxy on VM 104 with a wildcard LE cert issued by Cloudflare DNS-0
 | Proxmox VE    | https://10.21.21.99:8006              | thinkpad (10.21.21.99)|
 | PBS           | https://10.21.21.101:8007             | LXC 101 (10.21.21.101)|
 | Portainer     | https://10.21.21.104:9443 / https://portainer.nwdesigns.it | VM 104 |
-| Traefik       | http://10.21.21.104:8080 / https://traefik.nwdesigns.it    | VM 104 |
+| Traefik       | https://traefik.nwdesigns.it (basic auth, `admin`)           | VM 104 |
 | Vaultwarden   | https://vaultwarden.nwdesigns.it      | VM 104                |
 | n8n           | https://n8n.nwdesigns.it              | VM 104                |
 | Evolution API | https://evolution.nwdesigns.it        | VM 104                |
@@ -77,7 +77,7 @@ output before pasting it into a doc.
 
 - **Hostname**: `thinkpad` (`thinkpad.nwdesigns.home.arpa`) · **IP**: `10.21.21.99` · **Web UI**: https://10.21.21.99:8006
 - **Location**: NWDesigns office
-- **PVE**: 9.2.2 (running kernel 7.0.2-6-pve; 6.17.13-11-pve retained as GRUB fallback)
+- **PVE**: 9.2.11 (running kernel 7.0.14-14-pve; 7.0.2-6-pve + 6.17.13-21-pve retained as fallbacks)
 - **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz) · **RAM**: 15.5 GB dual-channel (~39% used)
 - **SSH**: `ssh root@10.21.21.99`
 
@@ -91,7 +91,7 @@ output before pasting it into a doc.
 
 | Name            | Type     | Size    | Used | Content                 | Notes                            |
 | --------------- | -------- | ------- | ---- | ----------------------- | -------------------------------- |
-| local           | dir      | 70 GB   | 52%  | ISOs, backups, snippets | `/var/lib/vz` (SSD)              |
+| local           | dir      | 70 GB   | 35%  | ISOs, backups, snippets | `/var/lib/vz` (SSD)              |
 | local-lvm       | LVM-thin | 142 GB  | 28%  | VM/LXC disks            | `pve/data` thinpool (SSD)        |
 | proxmox-storage | ZFS pool | 1.35 TB | <1%  | VM/LXC disks            | `storage/proxmox` (HDD mirror)   |
 | pbs-nwlab       | PBS      | 500 GB  | 6%   | backups                 | PBS @ 10.21.21.101 `home-backup` |
@@ -105,7 +105,7 @@ last scrub 2026-05-15 repaired 128K with 0 residual errors. Historically unstabl
 | Dataset              | Used    | Avail   | Quota  | Mountpoint            |
 | -------------------- | ------- | ------- | ------ | --------------------- |
 | storage              | 1.30 TB | 1.33 TB | none   | /storage              |
-| storage/homelab-sync | 192 GB  | 108 GB  | 300 GB | /storage/homelab-sync |
+| storage/homelab-sync | 300 GB  | 0 B     | 300 GB | /storage/homelab-sync |
 | storage/pbs          | 29.7 GB | 470 GB  | 500 GB | /storage/pbs          |
 | storage/proxmox      | 24 KB   | 1.33 TB | none   | /storage/proxmox      |
 | storage/timemachine  | 1.09 TB | 1.33 TB | 2.5 TB | /timemachine          |
@@ -177,15 +177,23 @@ Daily @ 01:00 → GC @ 03:00 → remote sync @ 04:00 (push over WireGuard VPN). 
 
 ## Warnings / gotchas
 
-- **homelab-sync approaching quota** — 192 GB used of 300 GB (108 GB remaining). Monitor growth.
+- **homelab-sync FULL** (2026-08-25) — 300 GB of 300 GB quota, 0 B free. Homelab pushes into the
+  `homelab-sync` datastore fail until homelab prunes its groups or the quota is raised (`zfs set quota=`).
 - **Firewall disabled** — PVE firewall service running but policy disabled; no active rules.
 - **PBS sync-job list bug** — `proxmox-backup-manager sync-job list` returns `[]` even though the
   `nwlab-to-homelab` push job exists and runs daily. Use `sync-job show nwlab-to-homelab` instead.
-- **otel-collector healthcheck false-positive** — Docker healthcheck calls `wget`, which isn't in the
-  `otel/opentelemetry-collector-contrib` image; container reports `unhealthy` but service is healthy
-  and accepting OTLP traffic. Pre-existing config bug, not an outage signal.
-- **USB ZFS vdev** — `sdc` (mirror member) is USB-attached and historically unstable; currently
-  ONLINE with 0 errors. Keep monitoring; pause any scrub before cable/disk swap.
+- **otel-collector healthcheck** — the contrib image has no `wget`/shell. The old `wget` healthcheck
+  reported `unhealthy` and `autoheal` restarted the collector every ~90 s (telemetry loss). Healthcheck is
+  now `disable: true` in the compose file. Do not re-add a shell-based healthcheck.
+- **USB ZFS vdev** — `sdc` (mirror member) is USB-attached and historically unstable. 2026-08-25:
+  7 READ / 3 CKSUM errors accumulated after the clean Aug 9 scrub (USB resets in dmesg); counters cleared
+  with `zpool clear storage`, no data errors. Check the USB cable. Pause any scrub before cable/disk swap.
+- **SSH is key-only** (2026-08-25) — `PasswordAuthentication no` + `PermitRootLogin prohibit-password` via
+  `/etc/ssh/sshd_config.d/10-hardening.conf` on the host, LXC 100, LXC 101, and VM 103. LXC 100/101 carry
+  the host root `authorized_keys`. Add your key before removing an old one.
+- **WireGuard ACL** — traffic from the routed homelab subnet `192.168.100.0/24` may only reach
+  `10.21.21.101:8007` (PBS) and ICMP on the office LAN (iptables in `wg0.conf` PostUp). Peers with a
+  single `/32` are not filtered.
 
 ### Resolved
 
@@ -196,3 +204,9 @@ Daily @ 01:00 → GC @ 03:00 → remote sync @ 04:00 (push over WireGuard VPN). 
 - ~~ZFS USB disk FAULTED~~ (2026-05-15): back ONLINE; scrub repaired 128K, 0 residual errors, mirror `storage` ONLINE.
 - ~~Stale PBS self-backup~~ (2026-05-22): LXC 101 added to `nwlab-daily` job (vmid 100,101,102,103,104).
 - ~~PVE 9.2.2 + kernel 7.0~~ (2026-05-27): 215 apt pkgs upgraded, `proxmox-ve` 9.0.0→9.2.0, kernel 7.0.2-6-pve installed (6.17.13-11-pve retained as GRUB fallback), ZFS userland 2.3.4→2.4.2, pool feature flags upgraded. All 5 guests verified post-reboot.
+- ~~Host root disk 90%~~ (2026-08-25): purged 43 old kernels (35 GB in `/usr/lib/modules`), `/` now 35%.
+- ~~PVE 9.2.11 + kernel 7.0.14-14~~ (2026-08-25): 150 apt pkgs upgraded (57 security), rebooted.
+- ~~Public hardening~~ (2026-08-25): Traefik `api.insecure=false` + basic-auth dashboard, `:8080` unpublished;
+  `forwardedHeaders.trustedIPs=172.20.0.0/16` so CrowdSec sees real client IPs behind cloudflared;
+  Vaultwarden `SIGNUPS_ALLOWED=false` + `ADMIN_TOKEN`; n8n DB password moved to `/opt/n8n/.env`;
+  `/opt/*/.env` are 0600; 2 stale WireGuard peers (10.0.0.2, 10.0.0.4) removed.

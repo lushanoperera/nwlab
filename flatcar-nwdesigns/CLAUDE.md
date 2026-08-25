@@ -28,7 +28,7 @@ Public:   Internet → Cloudflare → cloudflared tunnel → Traefik (:80) → C
 Internal: LAN/WG   → Cloudflare DNS (A *.nwlab → 10.21.21.104) → Caddy (:443) → *.nwlab.nwdesigns.it
 ```
 
-Both reverse proxies share flatcar-104 but don't collide: Traefik owns :80 + :8080 for the public Cloudflare tunnel, Caddy owns :443 for internal wildcard TLS (LE cert via Cloudflare DNS-01). Caddy runs in bridge mode and joins both `traefik-public` and `observability` docker networks to reach the backends.
+Both reverse proxies share flatcar-104 but don't collide: Traefik owns :80 for the public Cloudflare tunnel (`:8080` unpublished since 2026-08-25), Caddy owns :443 for internal wildcard TLS (LE cert via Cloudflare DNS-01). Caddy runs in bridge mode and joins both `traefik-public` and `observability` docker networks to reach the backends.
 
 ## Services (17 containers, 11 stacks)
 | Service | Internal Port | Public URL |
@@ -37,7 +37,7 @@ Both reverse proxies share flatcar-104 but don't collide: Traefik owns :80 + :80
 | n8n | 5678 | https://n8n.nwdesigns.it |
 | Evolution API | 8080 | https://evolution.nwdesigns.it |
 | Portainer | 9000 | https://portainer.nwdesigns.it |
-| Traefik Dashboard | 8080 | https://traefik.nwdesigns.it |
+| Traefik Dashboard | api@internal (basic auth) | https://traefik.nwdesigns.it |
 | Caddy (internal wildcard) | 443 | `https://*.nwlab.nwdesigns.it` (LAN-only) |
 | ntfy | 80 | https://ntfy.nwlab.nwdesigns.it (LAN-only, via Caddy) |
 | OTel Collector | 4317 / 4318 / 8888 | http://10.21.21.104:4317 (gRPC) / :4318 (HTTP); :8888 self-telemetry scraped by Prometheus |

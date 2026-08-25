@@ -199,7 +199,7 @@ labels:
 | Port | Service | Purpose |
 |------|---------|---------|
 | 80 | Traefik | HTTP ingress (used by Cloudflare tunnel) |
-| 8080 | Traefik | Dashboard/API (local access only) |
+| — | Traefik | Dashboard/API only via https://traefik.nwdesigns.it (basic auth); `:8080` unpublished |
 | 443 | Caddy | Internal wildcard TLS for `*.nwlab.nwdesigns.it` (LE via Cloudflare DNS-01) |
 | 8000 | Portainer | Edge agent |
 | 9443 | Portainer | HTTPS UI (local access) |

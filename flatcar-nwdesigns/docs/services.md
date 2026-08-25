@@ -10,6 +10,10 @@
 
 **Data Location:** `/opt/vaultwarden/data`
 
+**Auth posture (2026-08-25):** `SIGNUPS_ALLOWED=false` (invite users from the admin panel) and
+`ADMIN_TOKEN` set in `/opt/vaultwarden/.env` — admin panel at `/admin`. 2FA is per-user; enable it in
+each account (9 users had none at audit time).
+
 ### Environment Variables
 
 | File | Variable | Description |
@@ -155,7 +159,10 @@ ssh core@10.21.21.104 "sudo docker exec evolution_postgres pg_dump -U evolution 
 
 **Purpose:** Reverse proxy and load balancer with automatic Docker container discovery.
 
-**Dashboard:** https://traefik.nwdesigns.it | **Local:** http://10.21.21.104:8080
+**Dashboard:** https://traefik.nwdesigns.it (basic auth — user `admin`, hash in `/opt/infrastructure/.env` as
+`TRAEFIK_DASHBOARD_AUTH`, `$` escaped as `$$`). `--api.insecure=false`: port `:8080` is no longer published.
+`--entrypoints.web.forwardedHeaders.trustedIPs=172.20.0.0/16` makes Traefik trust `X-Forwarded-For` from
+cloudflared, so the access log and the CrowdSec bouncer see the real client IP.
 
 **Container:** `traefik` | **Config:** [`config/infrastructure/docker-compose.yml`](../config/infrastructure/docker-compose.yml)
 
@@ -175,13 +182,13 @@ labels:
 
 ```bash
 # View configured routers
-ssh core@10.21.21.104 "curl -s http://localhost:8080/api/http/routers | jq '.[] | {name, rule}'"
+curl -s -u admin:<password> https://traefik.nwdesigns.it/api/http/routers | jq '.[] | {name, rule}'
 
 # View services
-ssh core@10.21.21.104 "curl -s http://localhost:8080/api/http/services | jq '.[] | {name, status}'"
+curl -s -u admin:<password> https://traefik.nwdesigns.it/api/http/services | jq '.[] | {name, status}'
 
 # View middlewares
-ssh core@10.21.21.104 "curl -s http://localhost:8080/api/http/middlewares | jq '.[] | .name'"
+curl -s -u admin:<password> https://traefik.nwdesigns.it/api/http/middlewares | jq '.[] | .name'
 ```
 
 ---
