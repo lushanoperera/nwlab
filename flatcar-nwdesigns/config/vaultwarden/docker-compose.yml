@@ -10,6 +10,8 @@ services:
       - .env
     environment:
       - DOMAIN=https://vaultwarden.nwdesigns.it
+      - SIGNUPS_ALLOWED=false
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
       - SMTP_HOST=smtp.gmail.com
       - SMTP_PORT=587
       - SMTP_SECURITY=starttls

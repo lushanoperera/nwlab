@@ -30,11 +30,7 @@ services:
       - traefik-public
       - observability
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:13133/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      disable: true   # contrib image has no wget/shell; autoheal restart-looped on the false "unhealthy"
 
 networks:
   traefik-public:

@@ -14,7 +14,7 @@ services:
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=n8n
       - DB_POSTGRESDB_USER=n8n
-      - DB_POSTGRESDB_PASSWORD=n8n281188password
+      - DB_POSTGRESDB_PASSWORD=${N8N_DB_PASSWORD}
       - N8N_HOST=n8n.nwdesigns.it
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
@@ -47,7 +47,7 @@ services:
     mem_limit: 256m
     environment:
       - POSTGRES_USER=n8n
-      - POSTGRES_PASSWORD=n8n281188password
+      - POSTGRES_PASSWORD=${N8N_DB_PASSWORD}
       - POSTGRES_DB=n8n
     volumes:
       - postgres_data:/var/lib/postgresql/data

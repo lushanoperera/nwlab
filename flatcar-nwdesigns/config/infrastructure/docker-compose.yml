@@ -8,13 +8,13 @@ services:
     mem_limit: 256m
     ports:
       - "80:80"
-      - "8080:8080"
     command:
-      - "--api.insecure=true"
+      - "--api.insecure=false"
       - "--api.dashboard=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.forwardedHeaders.trustedIPs=172.20.0.0/16"
       - "--accesslog=true"
       - "--accesslog.filepath=/logs/access.log"
     volumes:
@@ -27,6 +27,8 @@ services:
       - "traefik.http.routers.dashboard.rule=Host(`traefik.nwdesigns.it`)"
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.entrypoints=web"
+      - "traefik.http.routers.dashboard.middlewares=dashboard-auth,crowdsec-bouncer@docker"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
       # CrowdSec bouncer middleware
       - "traefik.http.middlewares.crowdsec-bouncer.forwardauth.address=http://crowdsec-bouncer:8080/api/v1/forwardAuth"
       - "traefik.http.middlewares.crowdsec-bouncer.forwardauth.trustForwardHeader=true"
