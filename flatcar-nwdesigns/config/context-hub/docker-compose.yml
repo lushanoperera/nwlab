@@ -1,0 +1,34 @@
+# PROVISIONAL: context-hub MCP spike (learning only, no gate evidence).
+# Plan: context-hub repo, docs/spike-provisional.md. Source: context-hub/spike/.
+#
+# Access control: bound to 127.0.0.1 only. The only client is Lushano's Mac,
+# through `ssh -N -L 8787:127.0.0.1:8787 core@10.21.21.104`. The SSH key is
+# the access control. Never bind the LAN address or 0.0.0.0.
+#
+# Layout on the VM (/opt/context-hub/):
+#   src/     rsync of context-hub/spike/ (build context)
+#   packs/   rsync of context-hub/fixture/v1/ into packs/mobili-rossi/
+#   .env     from .env.example
+#
+# Rollback: docker-compose down, remove /opt/context-hub/, revert this commit.
+
+services:
+  context-hub:
+    build: ./src
+    container_name: context-hub
+    restart: unless-stopped
+    user: "10001:10001"   # matches USER in spike/Dockerfile; pack files must be world-readable
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    mem_limit: 128m
+    env_file:
+      - .env
+    volumes:
+      - /opt/context-hub/packs:/packs:ro
+    ports:
+      - "127.0.0.1:8787:8787"
+    healthcheck:
+      disable: true   # otel-collector precedent: autoheal restart-loops on a false "unhealthy"; logs are watched by hand

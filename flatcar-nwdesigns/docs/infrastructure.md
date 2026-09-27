@@ -206,6 +206,7 @@ labels:
 | 4317 | OTel Collector | OTLP gRPC — blog-publisher telemetry from VM 103 |
 | 4318 | OTel Collector | OTLP HTTP — blog-publisher telemetry from VM 103 |
 | 9090 (loopback) | Prometheus | `127.0.0.1:9090` — kept for SSH-tunnel debugging; Caddy + Grafana + collector use the `observability` Docker network hostname |
+| 8787 (loopback) | context-hub | `127.0.0.1:8787` — PROVISIONAL MCP spike, reached only through `ssh -N -L 8787:127.0.0.1:8787` from Lushano's Mac |
 | 3000 (internal) | Grafana | Via Caddy at `https://grafana.nwlab.nwdesigns.it` (LAN-only, NOT in Cloudflare tunnel) |
 
 **Port collision note:** Caddy binds `:443` but NOT `:80` — the Caddyfile's `http_port 8090` parks Caddy's otherwise-default :80 listener on an unused host-internal port so it doesn't collide with Traefik. Traefik keeps sole ownership of host :80 + :8080 and the Cloudflare tunnel for public `*.nwdesigns.it` services. ACME HTTP-01 fallback is never used because the wildcard cert is issued via DNS-01.
@@ -265,4 +266,9 @@ All containers have memory limits (~3 GB total on a 4 GB VM). Autoheal monitors 
 | evolution_postgres | 256m | Evolution API |
 | evolution_redis | 128m | Evolution API |
 | portainer | 256m | Portainer |
-| **Total** | **3008m** | |
+| context-hub | 128m | context-hub (PROVISIONAL spike) |
+| **Total** | **stale, see live `free -m`** | |
+
+**Stale table (2026-09-26):** the rows above omit caddy (192m), grafana (512m), prometheus (768m), ntfy (128m), and otel-collector (256m), per live `docker stats`. The VM balloon can reclaim up to 1 GiB, so read `free -m` for headroom. Follow-up: add the missing rows and recompute the total.
+
+**CPU type (2026-09-27):** the VM CPU is Proxmox `kvm64` ("Common KVM processor", no SSE4.1/4.2, POPCNT, AVX, AVX2). Bun 1.4.2 hangs on any `.ts` import here; Node (n8n 22, context-hub 24) runs fine. Check CPU flags before adding a runtime that needs x86-64-v2 or newer.
