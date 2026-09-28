@@ -1,16 +1,22 @@
 # PROVISIONAL: context-hub MCP spike (learning only, no gate evidence).
 # Plan: context-hub repo, docs/spike-provisional.md. Source: context-hub/spike/.
 #
-# Access control: bound to 127.0.0.1 only. The only client is Lushano's Mac,
-# through `ssh -N -L 8787:127.0.0.1:8787 core@10.21.21.104`. The SSH key is
-# the access control. Never bind the LAN address or 0.0.0.0.
+# Access control: bound to 127.0.0.1 only. Two clients reach it through SSH
+# tunnels `-L 8787:127.0.0.1:8787 core@10.21.21.104`: Lushano's Mac (his own
+# key) and the CachyOS Linux box (key `context_hub_ed25519`, restricted in
+# ~core/.ssh/authorized_keys.d/context-hub-linux to this one forward, no shell).
+# Each client also sends a bearer token; tokens.json holds only sha256 hashes
+# and per-client project grants, reread on every request (edit in place, keep
+# the inode: single-file bind mount). Never bind the LAN address or 0.0.0.0.
 #
 # Layout on the VM (/opt/context-hub/):
-#   src/     rsync of context-hub/spike/ (build context)
-#   packs/   rsync of context-hub/fixture/v1/ into packs/mobili-rossi/
-#   .env     from .env.example
+#   src/          rsync of context-hub/spike/ (build context)
+#   packs/        mobili-rossi/ (fixture/v1) and ambrosiano/ (gitignored real pack)
+#   tokens.json   root:root 0644, hashes only
+#   .env          from .env.example
 #
-# Rollback: docker-compose down, remove /opt/context-hub/, revert this commit.
+# Rollback: docker-compose down, remove /opt/context-hub/, remove
+# authorized_keys.d/context-hub-linux + update-ssh-keys, revert this commit.
 
 services:
   context-hub:
@@ -26,8 +32,11 @@ services:
     mem_limit: 128m
     env_file:
       - .env
+    environment:
+      TOKENS_FILE: /tokens.json
     volumes:
       - /opt/context-hub/packs:/packs:ro
+      - /opt/context-hub/tokens.json:/tokens.json:ro
     ports:
       - "127.0.0.1:8787:8787"
     healthcheck:
