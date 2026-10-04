@@ -134,7 +134,6 @@ with stream-json + OTEL → flatcar-104 otel-collector + ntfy alerts. See
 
 | Service                  | Purpose                                                                     |
 | ------------------------ | --------------------------------------------------------------------------- |
-| wazuh-agent              | Security monitoring (SIEM) — reports to Wazuh manager                        |
 | prometheus-node-exporter | System metrics exporter for Prometheus                                      |
 | iperf3                   | Network speed testing (listening as a service)                              |
 | chrony                   | NTP time synchronization                                                    |

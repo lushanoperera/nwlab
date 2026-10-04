@@ -28,7 +28,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 │  │ Prometheus, Grafana         │                            │
 │  └──────────────────────────────┘                            │
 │                                                              │
-│  Host: wazuh-agent, prometheus, chrony, postfix, ksmtuned    │
+│  Host: prometheus, chrony, postfix, ksmtuned                 │
 └──────────────────────────────────────────────────────────────┘
 ```
 
