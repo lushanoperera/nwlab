@@ -105,7 +105,7 @@ last scrub 2026-05-15 repaired 128K with 0 residual errors. Historically unstabl
 | Dataset              | Used    | Avail   | Quota  | Mountpoint            |
 | -------------------- | ------- | ------- | ------ | --------------------- |
 | storage              | 1.30 TB | 1.33 TB | none   | /storage              |
-| storage/homelab-sync | 300 GB  | 0 B     | 300 GB | /storage/homelab-sync |
+| storage/homelab-sync | 173 GB  | 227 GB  | 400 GB | /storage/homelab-sync |
 | storage/pbs          | 29.7 GB | 470 GB  | 500 GB | /storage/pbs          |
 | storage/proxmox      | 24 KB   | 1.33 TB | none   | /storage/proxmox      |
 | storage/timemachine  | 1.09 TB | 1.33 TB | 2.5 TB | /timemachine          |
@@ -119,6 +119,12 @@ last scrub 2026-05-15 repaired 128K with 0 residual errors. Historically unstabl
 | 102  | LXC  | timemachine-samba     | 10.21.21.102 | running | 1     | 192 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 14%       |
 | 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 2     | 2048 MB (balloon min 1536) | 32 GB   | local-lvm | yes       | —         |
 | 104  | VM   | flatcar-portainer-104 | 10.21.21.104 | running | 2     | 4096 MB (balloon min 3072) | 28.5 GB | local-lvm | yes       | 33%       |
+| 105  | LXC  | netbird-gw            | 10.21.21.105 | running | 1     | 512 MB (+256 swap)         | 4 GB    | local-lvm | yes       | 23%       |
+
+LXC 105 is the NetBird routing peer for `10.21.21.0/24` (server `https://vpn.disconnesso.com` on homelab
+VM 109; migration from WireGuard started 2026-10-04). Unprivileged, `nesting=1`, `/dev/net/tun`
+passthrough, unattended-upgrades (Debian security only). LXC 100 (WireGuard) stays until the homelab
+NetBird plan Phase 5. The PBS push still runs over WireGuard until Phase 4.
 
 VM 103 runs five blog-publisher cron jobs (officine, ambrosiano, costanzo + refresh + brand-audit)
 with stream-json + OTEL → flatcar-104 otel-collector + ntfy alerts. See
@@ -176,8 +182,10 @@ Daily @ 01:00 → GC @ 03:00 → remote sync @ 04:00 (push over WireGuard VPN). 
 
 ## Warnings / gotchas
 
-- **homelab-sync FULL** (2026-08-25) — 300 GB of 300 GB quota, 0 B free. Homelab pushes into the
-  `homelab-sync` datastore fail until homelab prunes its groups or the quota is raised (`zfs set quota=`).
+- **homelab-sync retention** (fixed 2026-10-04) — the datastore had no prune job and never ran GC, so it
+  filled its quota and every homelab push failed with `Disk quota exceeded` from 2026-09-19. Now: prune
+  job `homelab-sync-retention` daily 02:00 (keep 7 daily / 4 weekly / 2 monthly), GC daily 03:00, quota
+  400 GB. The push job keeps `remove-vanished false`, so the prune job is the only cleanup — do not delete it.
 - **Firewall disabled** — PVE firewall service running but policy disabled; no active rules.
 - **PBS sync-job list bug** — `proxmox-backup-manager sync-job list` returns `[]` even though the
   `nwlab-to-homelab` push job exists and runs daily. Use `sync-job show nwlab-to-homelab` instead.

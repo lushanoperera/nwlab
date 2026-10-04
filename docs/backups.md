@@ -17,7 +17,7 @@ PVE (thinkpad)            PBS Local (LXC 101)                  Homelab PBS (10.0
                           | homelab-sync         |<----| (reconfigured)       |
                           | /mnt/homelab-sync    |     +----------------------+
                           | storage/homelab-sync |
-                          | (300 GB quota)       |
+                          | (400 GB quota)       |
                           +----------------------+
 ```
 
@@ -28,7 +28,7 @@ nwlab PBS has two datastores to keep local and remote backups separate:
 | Datastore      | Purpose                | Path                | ZFS Dataset            | Quota  | Content                                   |
 | -------------- | ---------------------- | ------------------- | ---------------------- | ------ | ----------------------------------------- |
 | `home-backup`  | nwlab local backups    | `/mnt/datastore`    | `storage/pbs`          | 500 GB | ct/100, ct/101, ct/102, vm/103, vm/104    |
-| `homelab-sync` | Incoming homelab syncs | `/mnt/homelab-sync` | `storage/homelab-sync` | 300 GB | Homelab backup groups (received via push) |
+| `homelab-sync` | Incoming homelab syncs | `/mnt/homelab-sync` | `storage/homelab-sync` | 400 GB | Homelab backup groups (received via push) |
 
 This prevents VMID collisions (both environments use 100-104) and ensures nwlab's prune job only affects nwlab backups.
 
@@ -87,7 +87,8 @@ Retention applies only to `home-backup` (nwlab's own backups). The `homelab-sync
 
 - **PBS datastore**: `homelab-sync`
 - **Path**: `/mnt/homelab-sync` (bind mount from host `/storage/homelab-sync`)
-- **ZFS dataset**: `storage/homelab-sync` with 300 GB quota
+- **ZFS dataset**: `storage/homelab-sync` with 400 GB quota
+- **Retention**: prune job `homelab-sync-retention` daily 02:00 (7 daily / 4 weekly / 2 monthly), GC daily 03:00 (added 2026-10-04; before that the datastore never pruned and filled its quota)
 - **Content**: Homelab backup groups pushed from homelab PBS
 
 ## Remote Sync (nwlab → homelab)
