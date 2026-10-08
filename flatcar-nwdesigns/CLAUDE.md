@@ -30,12 +30,12 @@ Internal: LAN/WG   → Cloudflare DNS (A *.nwlab → 10.21.21.104) → Caddy (:4
 
 Both reverse proxies share flatcar-104 but don't collide: Traefik owns :80 for the public Cloudflare tunnel (`:8080` unpublished since 2026-08-25), Caddy owns :443 for internal wildcard TLS (LE cert via Cloudflare DNS-01). Caddy runs in bridge mode and joins both `traefik-public` and `observability` docker networks to reach the backends.
 
-## Services (17 containers, 11 stacks)
+## Services (16 containers, 12 stacks)
 | Service | Internal Port | Public URL |
 |---------|---------------|------------|
 | Vaultwarden | 80 | https://vaultwarden.nwdesigns.it |
 | n8n | 5678 | https://n8n.nwdesigns.it |
-| Evolution API | 8080 | https://evolution.nwdesigns.it |
+| OpenWA | 2785 | https://wa.nwlab.nwdesigns.it (LAN-only, via Caddy) |
 | Portainer | 9000 | https://portainer.nwdesigns.it |
 | Traefik Dashboard | api@internal (basic auth) | https://traefik.nwdesigns.it |
 | Caddy (internal wildcard) | 443 | `https://*.nwlab.nwdesigns.it` (LAN-only) |
@@ -44,7 +44,7 @@ Both reverse proxies share flatcar-104 but don't collide: Traefik owns :80 for t
 | Prometheus | 9090 | https://prometheus.nwlab.nwdesigns.it (LAN-only, via Caddy); still loopback-bound at `127.0.0.1:9090` for SSH tunnel |
 | Grafana | 3000 | https://grafana.nwlab.nwdesigns.it (LAN-only, via Caddy) |
 
-Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres, evolution_postgres, evolution_redis.
+Supporting containers: cloudflared, crowdsec, crowdsec-bouncer, n8n_postgres.
 Infrastructure containers: autoheal (auto-restarts unhealthy containers every 30s).
 Observability containers: otel-collector, ntfy, prometheus, grafana — full blog-publisher observability stack (telemetry → TSDB → dashboard + alerts) for ubuntu-desktop (VM 103) cron jobs. All four co-located on flatcar-104; no cross-WireGuard metric shipping.
 
@@ -62,7 +62,7 @@ Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 | CrowdSec | `/opt/crowdsec/` | `CROWDSEC_BOUNCER_API_KEY` |
 | Vaultwarden | `/opt/vaultwarden/` | `SMTP_PASSWORD` |
 | n8n | `/opt/n8n/` | — |
-| Evolution API | `/opt/evolution-api/` | `AUTHENTICATION_API_KEY`, `POSTGRES_PASSWORD` |
+| OpenWA | `/opt/openwa/` | `API_MASTER_KEY`, `API_KEY_PEPPER` |
 | Portainer | `/opt/portainer/` | — |
 | OTel Collector | `/opt/otel-collector/` | `PROMETHEUS_REMOTE_WRITE_URL` (optional) |
 | ntfy | `/opt/ntfy/` | `NTFY_ADMIN_TOKEN` (optional) |
@@ -85,7 +85,7 @@ Local mirrors: `config/*/docker-compose.yml` + `.env.example` templates.
 │   │   └── .env.example         # Template for secrets
 │   ├── n8n/
 │   │   └── docker-compose.yml
-│   ├── evolution-api/
+│   ├── openwa/                  # WhatsApp API gateway (replaced Evolution API 2026-10-02)
 │   │   ├── docker-compose.yml
 │   │   └── .env.example
 │   ├── portainer/

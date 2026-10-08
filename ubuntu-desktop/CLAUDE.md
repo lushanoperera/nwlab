@@ -7,8 +7,8 @@
 | **VMID**        | 103                                            |
 | **Name**        | `ubuntu-desktop-103`                           |
 | **OS**          | Lubuntu 26.04 LTS (LXQt desktop)                |
-| **CPU**         | 2 cores, host type (q35 machine)               |
-| **RAM**         | 2048 MB (balloon min 1536 MB)                  |
+| **CPU**         | 3 cores, host type (q35 machine)               |
+| **RAM**         | 4096 MB (balloon min 1536 MB)                  |
 | **Swap**        | 512 MB zram (zstd, prio 100) + 512 MB swapfile  |
 | **Swappiness**  | 100 (`/etc/sysctl.d/99-zram.conf`)             |
 | **Disk**        | 32 GB on local-lvm (SSD)                       |
@@ -17,7 +17,7 @@
 | **Network**     | virtio on vmbr0                                |
 | **IP**          | 10.21.21.103 (static via netplan)              |
 | **Guest Agent** | enabled, fstrim                                |
-| **Autostart**   | NO (interactive workstation — start on demand) |
+| **Autostart**   | yes (`onboot: 1`)                              |
 | **Tags**        | `desktop`, `claude-code`                       |
 
 ## Purpose
@@ -85,29 +85,37 @@ ssh disconnesso@10.21.21.103 "node --version && claude --version"
 
 ## Memory Budget
 
-With balloon enabled, this VM returns up to 512 MB to the host when idle:
+With balloon enabled, this VM returns up to 2560 MB to the host when idle:
 
-- **Max**: 2048 MB (Firefox + Claude Code + LXQt active)
+- **Max**: 4096 MB (Firefox + Claude Code + LXQt active)
 - **Min**: 1536 MB (idle, balloon deflated)
 - **Zram**: 512 MB compressed swap helps balloon work smoothly
 
 ## Blog publisher observability
 
-Five cron jobs run on this VM as the `disconnesso` user. Each shells out to
-`claude --print` (Max-subscription OAuth) via a Python wrapper.
+Since 2026-05-20 the three daily blog publishers run as Claude Routines (cloud), not on this VM.
+Their cron lines, the weekly refresh and the 3 publisher health checks stay in the `disconnesso`
+crontab as `# [disabled 2026-05-20 …]` comments. Two monthly jobs and one health check stay active.
+Each job shells out to `claude --print` (Max-subscription OAuth) via a Python wrapper.
 
 ### Cron inventory
 
-| Schedule | Project | Script |
-|---|---|---|
-| `0 6 * * *` | officinewordpress.it | `~/Projects/officinewordpress.it/scripts/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) |
-| `0 7 * * *` | ambrosianomilano.it | `~/Projects/ambrosianomilano.it/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) |
-| `0 9 * * *` | old.costanzogoldtraders.com | `~/Projects/costanzogoldtraders.com/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) |
-| `0 10 * * 0` | officinewordpress refresh | `publisher.py --refresh` (via `scripts/cron-wrap.sh`) |
-| `0 8 1 * *` | officine brand-audit | `~/Projects/officinewordpress.it/scripts/brand-audit/audit.py` (via `scripts/cron-wrap.sh`) |
+| Schedule | Project | Script | State |
+|---|---|---|---|
+| `0 6 * * *` | officinewordpress.it | `~/Projects/officinewordpress.it/scripts/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) | disabled → Routine |
+| `0 7 * * *` | ambrosianomilano.it | `~/Projects/ambrosianomilano.it/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) | disabled → Routine |
+| `0 9 * * *` | old.costanzogoldtraders.com | `~/Projects/costanzogoldtraders.com/blog-publisher/publisher.py` (via `scripts/cron-wrap.sh`) | disabled → Routine |
+| `0 10 * * 0` | officinewordpress refresh | `publisher.py --refresh` (via `scripts/cron-wrap.sh`) | disabled (deferred) |
+| `0 8 1 * *` | officine brand-audit | `~/Projects/officinewordpress.it/scripts/brand-audit/audit.py` (via `scripts/cron-wrap.sh`) | active |
+| `0 8 1 * *` | costanzo SEO audit | `~/Projects/costanzogoldtraders.com/blog-publisher/seo_out/cron-wrap.sh` | active |
+| `*/15 * * * *` | brand-audit health check | `~/Projects/officinewordpress.it/scripts/brand-audit/scripts/check-audit-health.sh` | active |
 
-Plus 3× `*/5 * * * * scripts/check-publisher-health.sh` and the `*/15 * * * *`
-brand-audit health check.
+The 3× `*/5 * * * * scripts/check-publisher-health.sh` lines are disabled (the Routine run list
+replaces them).
+
+> **Brand-audit exec bit** (fixed 2026-10-08): `brand-audit/scripts/cron-wrap.sh` and
+> `check-audit-health.sh` were mode `0644`, so cron logged `Permission denied` and the audit never
+> ran after 2026-04-11. Both are now `0755`. The first real run is 2026-11-01 08:00.
 
 ### Heartbeat + last-run files
 

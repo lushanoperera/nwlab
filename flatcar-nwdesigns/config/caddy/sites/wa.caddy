@@ -1,0 +1,7 @@
+# OpenWA (WhatsApp API gateway + dashboard) — LAN-only, added 2026-10-02.
+# Backend resolves over the traefik-public Docker network.
+
+@wa host wa.nwlab.nwdesigns.it
+handle @wa {
+	reverse_proxy openwa-api:2785
+}

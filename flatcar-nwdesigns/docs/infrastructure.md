@@ -21,9 +21,8 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 | **Vaultwarden** | Password manager (Bitwarden compatible) | `vaultwarden/server:latest` |
 | **n8n** | Workflow automation | `docker.n8n.io/n8nio/n8n:latest` |
 | **Portainer** | Docker management UI | `portainer/portainer-ce:2.20.3` |
-| **Evolution API** | WhatsApp Business API gateway | `atendai/evolution-api:latest` |
-| **PostgreSQL** (×2) | Databases for n8n and Evolution API | `postgres:15-alpine` |
-| **Redis** | Cache for Evolution API | `redis:7-alpine` |
+| **OpenWA** | WhatsApp API gateway + dashboard (Baileys engine, SQLite); replaced Evolution API 2026-10-02 | `ghcr.io/rmyndharis/openwa:0.23.7` |
+| **PostgreSQL** | Database for n8n | `postgres:15-alpine` |
 | **Autoheal** | Auto-restarts unhealthy containers every 30s | `willfarrell/autoheal:latest` |
 | **OTel Collector** | Ingests telemetry from VM 103 blog-publisher cron jobs; exports to NDJSON files + co-located Prometheus remote-write | `otel/opentelemetry-collector-contrib:latest` |
 | **ntfy** | Pub/sub alert channel for blog-publisher failures + stale heartbeats (topic `blog-publishers`) | `binwiederhier/ntfy:latest` |
@@ -32,7 +31,7 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 
 ## Network Topology
 
-16 containers across 10 stacks:
+16 containers across 12 stacks:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
@@ -45,18 +44,18 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 │  └──────────┘  └────────────┘  └──────────┘  └─────────────────────────┘ │
 │                                                                           │
 │  ┌───────────┐  ┌───────────┐  ┌───────────────┐  ┌───────────┐         │
-│  │vaultwarden│  │    n8n    │  │ evolution_api │  │ portainer │         │
-│  │   :80     │  │   :5678   │  │     :8080     │  │   :9000   │         │
-│  └───────────┘  └─────┬─────┘  └───────┬───────┘  └───────────┘         │
-│                       │                │                                  │
-│                ┌──────┴──────┐  ┌──────┴────────────┐                    │
-│                │n8n-internal │  │evolution-internal  │                    │
-│                │  network    │  │  network           │                    │
-│                │ ┌─────────┐ │  │ ┌────────┐┌─────┐ │                    │
-│                │ │postgres │ │  │ │postgres││redis│ │                    │
-│                │ │  :5432  │ │  │ │ :5432  ││:6379│ │                    │
-│                │ └─────────┘ │  │ └────────┘└─────┘ │                    │
-│                └─────────────┘  └───────────────────┘                    │
+│  │vaultwarden│  │    n8n    │  │  openwa-api   │  │ portainer │         │
+│  │   :80     │  │   :5678   │  │     :2785     │  │   :9000   │         │
+│  └───────────┘  └─────┬─────┘  └───────────────┘  └───────────┘         │
+│                       │         (SQLite in openwa_openwa-data volume)     │
+│                ┌──────┴──────┐                                           │
+│                │n8n-internal │                                           │
+│                │  network    │                                           │
+│                │ ┌─────────┐ │                                           │
+│                │ │postgres │ │                                           │
+│                │ │  :5432  │ │                                           │
+│                │ └─────────┘ │                                           │
+│                └─────────────┘                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 
   ┌───────────┐  (host-only, no network — mounts Docker socket)
@@ -79,7 +78,8 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 
   caddy joins both traefik-public + observability (bridge mode, :443 only)
     → wildcard LE cert for *.nwlab.nwdesigns.it via Cloudflare DNS-01
-    → reverse-proxies ntfy, grafana, prometheus over internal docker DNS
+    → reverse-proxies ntfy, grafana, prometheus, openwa over internal docker DNS
+  openwa-api joins traefik-public (no Traefik labels); routed at https://wa.nwlab.nwdesigns.it
   ntfy joins traefik-public; routed at https://ntfy.nwlab.nwdesigns.it
   grafana joins both networks; routed at https://grafana.nwlab.nwdesigns.it
   prometheus stays on observability; routed at https://prometheus.nwlab.nwdesigns.it
@@ -92,7 +92,6 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 | Vaultwarden | https://vaultwarden.nwdesigns.it | HTTPS (via Cloudflare) |
 | n8n | https://n8n.nwdesigns.it | HTTPS (via Cloudflare) |
 | Portainer | https://portainer.nwdesigns.it | HTTPS (via Cloudflare) |
-| Evolution API | https://evolution.nwdesigns.it | HTTPS (via Cloudflare) |
 | Traefik Dashboard | https://traefik.nwdesigns.it | HTTPS (via Cloudflare) |
 
 ## VM File Structure
@@ -113,9 +112,9 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 │   └── data/                 # Persistent data
 ├── n8n/
 │   └── docker-compose.yml
-├── evolution-api/
+├── openwa/                   # WhatsApp API gateway (LAN-only via Caddy)
 │   ├── docker-compose.yml
-│   └── .env                  # AUTHENTICATION_API_KEY, POSTGRES_PASSWORD
+│   └── .env                  # API_MASTER_KEY, API_KEY_PEPPER (0600)
 ├── portainer/
 │   └── docker-compose.yml
 ├── otel-collector/           # Blog-publisher telemetry ingest
@@ -142,6 +141,7 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
     ├── entrypoint.sh         # Reads /run/secrets/cloudflare_api_token → CF_API_TOKEN
     ├── Caddyfile             # *.nwlab.nwdesigns.it wildcard site block
     ├── sites/nwlab.caddy     # Per-subdomain matchers (ntfy, grafana, prometheus)
+    ├── sites/wa.caddy        # wa.nwlab.nwdesigns.it → openwa-api:2785
     ├── secrets/cloudflare_api_token  # 0600; scoped CF token (Zone:Read + DNS:Edit on nwdesigns.it)
     ├── data/                 # Caddy on-disk state (cert cache, OCSP staples)
     └── config/               # Caddy runtime config cache
@@ -155,10 +155,7 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 | `n8n_n8n_data` | n8n | `/home/node/.n8n` |
 | `n8n_postgres_data` | n8n_postgres | `/var/lib/postgresql/data` |
 | `portainer_data` | portainer | `/data` |
-| `evolution_evolution_instances` | evolution_api | `/evolution/instances` |
-| `evolution_evolution_store` | evolution_api | `/evolution/store` |
-| `evolution_postgres_data` | evolution_postgres | `/var/lib/postgresql/data` |
-| `evolution_redis_data` | evolution_redis | `/data` |
+| `openwa_openwa-data` | openwa-api | `/app/data` |
 | `/opt/vaultwarden/data` | vaultwarden | `/data` |
 | `/opt/crowdsec/db` | crowdsec | `/var/lib/crowdsec/data` |
 | `/opt/crowdsec/config` | crowdsec | `/etc/crowdsec` |
@@ -218,7 +215,7 @@ Services should be started in this order:
 1. `traefik-public` network (must exist)
 2. Infrastructure stack (Traefik + Cloudflared + Autoheal)
 3. CrowdSec stack (depends on Traefik logs volume; bouncer waits for LAPI healthcheck)
-4. Application services (Vaultwarden, n8n, Evolution API, Portainer)
+4. Application services (Vaultwarden, n8n, OpenWA, Portainer)
 
 ```bash
 # Full restart sequence
@@ -226,7 +223,7 @@ cd /opt/infrastructure && sudo /opt/bin/docker-compose up -d
 cd /opt/crowdsec && sudo /opt/bin/docker-compose up -d
 cd /opt/vaultwarden && sudo /opt/bin/docker-compose up -d
 cd /opt/n8n && sudo /opt/bin/docker-compose up -d
-cd /opt/evolution-api && sudo /opt/bin/docker-compose up -d
+cd /opt/openwa && sudo /opt/bin/docker-compose up -d
 cd /opt/portainer && sudo /opt/bin/docker-compose up -d
 ```
 
@@ -243,10 +240,8 @@ cd /opt/portainer && sudo /opt/bin/docker-compose up -d
 | Docker volume: `n8n_n8n_data` | n8n workflows and credentials |
 | Docker volume: `n8n_postgres_data` | n8n PostgreSQL database |
 | Docker volume: `portainer_data` | Portainer configuration |
-| `/opt/evolution-api/.env` | Evolution API key + Postgres password |
-| Docker volume: `evolution_evolution_instances` | WhatsApp session data |
-| Docker volume: `evolution_evolution_store` | Evolution store data |
-| Docker volume: `evolution_postgres_data` | Evolution PostgreSQL database |
+| `/opt/openwa/.env` | OpenWA master key + key pepper |
+| Docker volume: `openwa_openwa-data` | OpenWA SQLite DB + WhatsApp session data |
 
 ## Resource Limits
 
@@ -262,9 +257,7 @@ All containers have memory limits (~3 GB total on a 4 GB VM). Autoheal monitors 
 | vaultwarden | 256m | Vaultwarden |
 | n8n | 512m | n8n |
 | n8n_postgres | 256m | n8n |
-| evolution_api | 512m | Evolution API |
-| evolution_postgres | 256m | Evolution API |
-| evolution_redis | 128m | Evolution API |
+| openwa-api | 512m | OpenWA |
 | portainer | 256m | Portainer |
 | context-hub | 128m | context-hub (PROVISIONAL spike) |
 | **Total** | **stale, see live `free -m`** | |

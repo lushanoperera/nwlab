@@ -2,7 +2,7 @@
 
 **NWLab** — infrastructure-as-documentation for the NWDesigns office Proxmox homelab. A ThinkPad
 (`thinkpad`, `10.21.21.99`) running Proxmox VE hosts VPN (WireGuard), backups (PBS + Time Machine),
-a Flatcar Docker host (Traefik/CrowdSec/Vaultwarden/n8n/Evolution API/Portainer + an observability
+a Flatcar Docker host (Traefik/CrowdSec/Vaultwarden/n8n/OpenWA/Portainer + an observability
 stack), and an Ubuntu Claude Code workstation. There is no app build pipeline — the substance of this
 repo is documentation validated against live SSH output and mirrored configs.
 
@@ -23,7 +23,7 @@ Caddy reverse proxy on VM 104 with a wildcard LE cert issued by Cloudflare DNS-0
 | Traefik       | https://traefik.nwdesigns.it (basic auth, `admin`)           | VM 104 |
 | Vaultwarden   | https://vaultwarden.nwdesigns.it      | VM 104                |
 | n8n           | https://n8n.nwdesigns.it              | VM 104                |
-| Evolution API | https://evolution.nwdesigns.it        | VM 104                |
+| OpenWA        | https://wa.nwlab.nwdesigns.it         | VM 104                |
 | Grafana       | https://grafana.nwlab.nwdesigns.it    | VM 104                |
 | Prometheus    | https://prometheus.nwlab.nwdesigns.it / 127.0.0.1:9090 (SSH tunnel) | VM 104 |
 | ntfy          | https://ntfy.nwlab.nwdesigns.it       | VM 104                |
@@ -39,8 +39,8 @@ docs/
 flatcar-nwdesigns/           # VM 104 — Flatcar Docker host
   CLAUDE.md                  # VM-specific reference (specs, connection, ops)
   config/                    # Docker Compose configs (local mirror of what runs on the VM):
-                             #   caddy/ crowdsec/ evolution-api/ grafana/ infrastructure/
-                             #   n8n/ ntfy/ otel-collector/ portainer/ prometheus/ vaultwarden/
+                             #   caddy/ crowdsec/ grafana/ infrastructure/
+                             #   n8n/ ntfy/ openwa/ otel-collector/ portainer/ prometheus/ vaultwarden/
   docs/                      # infrastructure.md, services.md
 ubuntu-desktop/              # VM 103 — Lubuntu 26.04 Claude Code workstation
   CLAUDE.md                  # VM-specific reference (specs, blog-publisher cron + observability)
@@ -77,7 +77,7 @@ output before pasting it into a doc.
 
 - **Hostname**: `thinkpad` (`thinkpad.nwdesigns.home.arpa`) · **IP**: `10.21.21.99` · **Web UI**: https://10.21.21.99:8006
 - **Location**: NWDesigns office
-- **PVE**: 9.2.11 (running kernel 7.0.14-14-pve; 7.0.2-6-pve + 6.17.13-21-pve retained as fallbacks)
+- **PVE**: 9.2.21 (running kernel 7.0.14-14-pve; 7.0.2-6-pve + 6.17.13-21-pve retained as fallbacks)
 - **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz) · **RAM**: 15.5 GB dual-channel (~39% used)
 - **SSH**: `ssh root@10.21.21.99`
 
@@ -97,8 +97,10 @@ output before pasting it into a doc.
 | pbs-nwlab       | PBS      | 500 GB  | 6%   | backups                 | PBS @ 10.21.21.101 `home-backup` |
 
 **Disks** — `sda` (238.5 GB SSD): PVE boot, LVM (root + swap + thinpool). `sdb` + `sdc` (2× 2.7 TB):
-ZFS mirror pool `storage`, ONLINE, both vdevs healthy. **`sdc` is USB** — currently ONLINE, 0 errors;
-last scrub 2026-05-15 repaired 128K with 0 residual errors. Historically unstable — keep watch.
+ZFS mirror pool `storage`, ONLINE. **`sdc` is USB** — ONLINE, 0 ZFS errors; last scrub 2026-10-01
+repaired 0B with 0 errors. **SMART degrading (2026-10-07)**: `sdc` 6 pending + 5 offline-uncorrectable
+sectors and its short self-tests fail with a read error at LBA 103760144. `sdb` has 2 pending sectors
+(self-tests pass). Both disks are at ~68,000 power-on hours. Plan to replace `sdc`.
 
 **ZFS datasets**
 
@@ -117,7 +119,7 @@ last scrub 2026-05-15 repaired 128K with 0 residual errors. Historically unstabl
 | 100  | LXC  | wireguard             | 10.21.21.100 | running | 1     | 128 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 46%       |
 | 101  | LXC  | proxmox-backup-server | 10.21.21.101 | running | 1     | 256 MB (+512 swap)         | 10 GB   | local-lvm | yes       | 39%       |
 | 102  | LXC  | timemachine-samba     | 10.21.21.102 | running | 1     | 192 MB (+256 swap)         | 8 GB    | local-lvm | yes       | 14%       |
-| 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 2     | 2048 MB (balloon min 1536) | 32 GB   | local-lvm | yes       | —         |
+| 103  | VM   | ubuntu-desktop-103    | 10.21.21.103 | running | 3     | 4096 MB (balloon min 1536) | 32 GB   | local-lvm | yes       | —         |
 | 104  | VM   | flatcar-portainer-104 | 10.21.21.104 | running | 2     | 4096 MB (balloon min 3072) | 28.5 GB | local-lvm | yes       | 33%       |
 | 105  | LXC  | netbird-gw            | 10.21.21.105 | running | 1     | 512 MB (+256 swap)         | 4 GB    | local-lvm | yes       | 23%       |
 
@@ -126,8 +128,10 @@ VM 109; migration from WireGuard started 2026-10-04). Unprivileged, `nesting=1`,
 passthrough, unattended-upgrades (Debian security only). LXC 100 (WireGuard) stays until the homelab
 NetBird plan Phase 5. The PBS push still runs over WireGuard until Phase 4.
 
-VM 103 runs five blog-publisher cron jobs (officine, ambrosiano, costanzo + refresh + brand-audit)
-with stream-json + OTEL → flatcar-104 otel-collector + ntfy alerts. See
+The three daily blog publishers (officine, ambrosiano, costanzo) moved to Claude Routines on
+2026-05-20. Their VM 103 cron lines and the weekly refresh are disabled. VM 103 still runs the monthly
+officine brand-audit, the monthly costanzo SEO audit and the brand-audit health check, with
+stream-json + OTEL → flatcar-104 otel-collector + ntfy alerts. See
 `ubuntu-desktop/CLAUDE.md#blog-publisher-observability`.
 
 **Guest bind mounts** — 101: `/storage/pbs`→`/mnt/datastore`, `/storage/homelab-sync`→`/mnt/homelab-sync`;
@@ -217,3 +221,5 @@ Daily @ 01:00 → GC @ 03:00 → remote sync @ 04:00 (push over WireGuard VPN). 
   `forwardedHeaders.trustedIPs=172.20.0.0/16` so CrowdSec sees real client IPs behind cloudflared;
   Vaultwarden `SIGNUPS_ALLOWED=false` + `ADMIN_TOKEN`; n8n DB password moved to `/opt/n8n/.env`;
   `/opt/*/.env` are 0600; 2 stale WireGuard peers (10.0.0.2, 10.0.0.4) removed.
+- ~~VM 103 brand-audit never ran~~ (2026-10-08): `brand-audit/scripts/cron-wrap.sh` + `check-audit-health.sh`
+  were 0644 (cron `Permission denied` since April); now 0755. First real run 2026-11-01 08:00.

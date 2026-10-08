@@ -20,10 +20,10 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 │  ┌──────────────────────────────┐  ┌─────────────────┐       │
 │  │ Flatcar VM 104               │  │ Ubuntu VM 103   │       │
 │  │ .104 │ Docker 28.0.4         │  │ .103 │ 26.04LTS │       │
-│  │ 16 containers / 10 stacks    │  │ Claude Code CLI │       │
+│  │ 16 containers / 12 stacks    │  │ Claude Code CLI │       │
 │  │ Traefik, CrowdSec,          │  │ + blog-publisher│       │
 │  │ Vaultwarden, n8n,           │  │   cron jobs     │       │
-│  │ Evolution API, Portainer,   │  └─────────────────┘       │
+│  │ OpenWA, Portainer,          │  └─────────────────┘       │
 │  │ OTel Collector, ntfy,       │                            │
 │  │ Prometheus, Grafana         │                            │
 │  └──────────────────────────────┘                            │
@@ -40,7 +40,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | wireguard             | 10.21.21.100 | VPN gateway                         |
 | proxmox-backup-server | 10.21.21.101 | PBS for VM/LXC backups              |
 | timemachine-samba     | 10.21.21.102 | macOS Time Machine over SMB         |
-| ubuntu-desktop        | 10.21.21.103 | Claude Code workstation + blog-publisher cron jobs |
+| ubuntu-desktop        | 10.21.21.103 | Claude Code workstation + monthly audit cron jobs |
 | flatcar-portainer     | 10.21.21.104 | Docker services (Flatcar Linux)     |
 | caddy                 | 10.21.21.104 (:443) | Internal wildcard TLS reverse proxy for `*.nwlab.nwdesigns.it` (LE via Cloudflare DNS-01) |
 | ntfy                  | 10.21.21.104 (https://ntfy.nwlab.nwdesigns.it) | Blog-publisher alert channel (LAN-only, via Caddy) |
@@ -58,7 +58,7 @@ A ThinkPad (i5-6200U, 8GB RAM) running **Proxmox VE 9.1.6** hosts the office inf
 | Traefik       | https://traefik.nwdesigns.it     |
 | Vaultwarden   | https://vaultwarden.nwdesigns.it |
 | n8n           | https://n8n.nwdesigns.it         |
-| Evolution API | https://evolution.nwdesigns.it   |
+| OpenWA        | https://wa.nwlab.nwdesigns.it    |
 | ntfy          | https://ntfy.nwlab.nwdesigns.it       |
 | Grafana       | https://grafana.nwlab.nwdesigns.it    |
 | Prometheus    | https://prometheus.nwlab.nwdesigns.it |

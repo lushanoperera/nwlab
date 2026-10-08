@@ -78,69 +78,38 @@ ssh core@10.21.21.104 "sudo docker exec n8n_postgres pg_dump -U n8n n8n > /tmp/n
 
 ---
 
-## Evolution API
+## OpenWA
 
-**Purpose:** WhatsApp Business API gateway — sending/receiving WhatsApp messages via REST API.
+**Purpose:** WhatsApp API gateway + web dashboard (REST, webhooks). Replaced Evolution API on
+2026-10-02; the Evolution stack, its volumes and `evolution.nwdesigns.it` are gone.
 
-**URL:** https://evolution.nwdesigns.it | **Manager UI:** https://evolution.nwdesigns.it/manager
+**URL:** https://wa.nwlab.nwdesigns.it (LAN-only, via Caddy `sites/wa.caddy`; not in the Cloudflare tunnel)
 
-**Containers:** `evolution_api` + `evolution_postgres` + `evolution_redis` | **Config:** [`config/evolution-api/docker-compose.yml`](../config/evolution-api/docker-compose.yml)
+**Container:** `openwa-api` (`ghcr.io/rmyndharis/openwa:0.23.7`, port 2785, on `traefik-public`) |
+**Config:** [`config/openwa/docker-compose.yml`](../config/openwa/docker-compose.yml) (verbatim upstream compose)
 
-**Database:** PostgreSQL 15 + Redis 7
+**Engine / DB:** Baileys (`ENGINE_TYPE=baileys`), SQLite in volume `openwa_openwa-data`. `AUTO_START_SESSIONS=true`.
 
 ### Environment Variables
 
 | File | Variable | Description |
 |------|----------|-------------|
-| `.env` | `AUTHENTICATION_API_KEY` | API key for authenticating requests |
-| `.env` | `POSTGRES_PASSWORD` | PostgreSQL database password |
+| `/opt/openwa/.env` | `API_MASTER_KEY` | Master API key |
+| `/opt/openwa/.env` | `API_KEY_PEPPER` | Pepper for stored API keys |
 
-### WhatsApp Setup
-
-1. Access the manager UI: https://evolution.nwdesigns.it/manager
-2. Create a new instance (e.g., `nwteam`)
-3. Scan the QR code with your WhatsApp
-4. Use the instance name and API key for API calls
-
-### API Usage
-
-```bash
-# List all groups
-curl -X GET "https://evolution.nwdesigns.it/group/fetchAllGroups/INSTANCE_NAME" \
-  -H "apikey: YOUR_API_KEY"
-
-# Send text message to group
-curl -X POST "https://evolution.nwdesigns.it/message/sendText/INSTANCE_NAME" \
-  -H "apikey: YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "number": "GROUP_ID@g.us",
-    "text": "Hello from Evolution API!"
-  }'
-```
-
-### Integration with n8n
-
-Evolution API integrates with n8n for workflow automation (e.g., GitLab → Slack → WhatsApp notifications):
-
-1. Create n8n workflow with Webhook Trigger
-2. Add HTTP Request node pointing to Evolution API
-3. Configure with your instance name and API key via n8n variables
+Non-secret values are in [`config/openwa/.env.example`](../config/openwa/.env.example).
 
 ### Management Commands
 
 ```bash
-# View Evolution API logs
-ssh core@10.21.21.104 "sudo docker logs evolution_api -f"
+# Readiness (200 = ready)
+curl -s -o /dev/null -w "%{http_code}\n" https://wa.nwlab.nwdesigns.it/api/health/ready
 
-# Restart Evolution API stack
-ssh core@10.21.21.104 "cd /opt/evolution-api && sudo /opt/bin/docker-compose restart"
+# Logs
+ssh core@10.21.21.104 "sudo docker logs openwa-api --tail 100"
 
-# Check connection status
-ssh core@10.21.21.104 "curl -s http://localhost:8080 -H 'Host: evolution.nwdesigns.it'"
-
-# Database backup
-ssh core@10.21.21.104 "sudo docker exec evolution_postgres pg_dump -U evolution evolution > /tmp/evolution-db-backup.sql"
+# Restart
+ssh core@10.21.21.104 "cd /opt/openwa && sudo /opt/bin/docker-compose restart"
 ```
 
 ---
@@ -207,7 +176,6 @@ curl -s -u admin:<password> https://traefik.nwdesigns.it/api/http/middlewares | 
 |----------|--------|
 | vaultwarden.nwdesigns.it | http://traefik:80 |
 | n8n.nwdesigns.it | http://traefik:80 |
-| evolution.nwdesigns.it | http://traefik:80 |
 | portainer.nwdesigns.it | http://traefik:80 |
 | traefik.nwdesigns.it | http://traefik:80 |
 
@@ -554,6 +522,7 @@ Per-subdomain matchers live in [`config/caddy/sites/nwlab.caddy`](../config/cadd
 | `grafana.nwlab.nwdesigns.it` | `grafana:3000` | Via `observability` network |
 | `ntfy.nwlab.nwdesigns.it` | `ntfy:80` | Via `traefik-public` network |
 | `prometheus.nwlab.nwdesigns.it` | `prometheus:9090` | Via `observability` network |
+| `wa.nwlab.nwdesigns.it` | `openwa-api:2785` | Via `traefik-public` network; in its own file [`sites/wa.caddy`](../config/caddy/sites/wa.caddy) |
 
 Anything not matched falls through to `handle { respond "Not Found" 404 }` at the wildcard-site level. Add future services by appending a new `@name host ...` matcher to `sites/nwlab.caddy` and redeploying — no Caddyfile root edit required.
 
