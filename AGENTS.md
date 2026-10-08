@@ -196,6 +196,10 @@ Daily @ 01:00 → GC @ 03:00 → remote sync @ 04:00 (push over WireGuard VPN). 
 - **otel-collector healthcheck** — the contrib image has no `wget`/shell. The old `wget` healthcheck
   reported `unhealthy` and `autoheal` restarted the collector every ~90 s (telemetry loss). Healthcheck is
   now `disable: true` in the compose file. Do not re-add a shell-based healthcheck.
+- **Vaultwarden must track Bitwarden clients** (2026-10-08) — `:latest` was never re-pulled, so 1.35.2
+  stayed live; 2026.x clients call `POST /identity/accounts/prelogin/password` (added in 1.36.0) → 404 →
+  "unexpected error" on login. Now pinned to `1.37.4`. Bump the tag when clients update; back up
+  `/opt/vaultwarden/data` first (schema migrates forward only). Pre-upgrade copy: `data.bak-20261008`.
 - **USB ZFS vdev** — `sdc` (mirror member) is USB-attached and historically unstable. 2026-08-25:
   7 READ / 3 CKSUM errors accumulated after the clean Aug 9 scrub (USB resets in dmesg); counters cleared
   with `zpool clear storage`, no data errors. Check the USB cable. Pause any scrub before cable/disk swap.

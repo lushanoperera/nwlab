@@ -2,8 +2,13 @@ version: '3.8'
 
 services:
   vaultwarden:
-    image: vaultwarden/server:latest
+    image: vaultwarden/server:1.37.4
     container_name: vaultwarden
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     restart: unless-stopped
     mem_limit: 256m
     env_file:

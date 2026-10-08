@@ -18,7 +18,7 @@ Internet → Cloudflare CDN → Cloudflare Tunnel → Traefik → CrowdSec Bounc
 | **Cloudflared** | Cloudflare Tunnel connector | `cloudflare/cloudflared:latest` |
 | **CrowdSec** | Intrusion prevention system | `crowdsecurity/crowdsec:latest` |
 | **CrowdSec Bouncer** | ForwardAuth middleware | `fbonalair/traefik-crowdsec-bouncer:latest` |
-| **Vaultwarden** | Password manager (Bitwarden compatible) | `vaultwarden/server:latest` |
+| **Vaultwarden** | Password manager (Bitwarden compatible) | `vaultwarden/server:1.37.4` (pinned 2026-10-08) |
 | **n8n** | Workflow automation | `docker.n8n.io/n8nio/n8n:latest` |
 | **Portainer** | Docker management UI | `portainer/portainer-ce:2.20.3` |
 | **OpenWA** | WhatsApp API gateway + dashboard (Baileys engine, SQLite); replaced Evolution API 2026-10-02 | `ghcr.io/rmyndharis/openwa:0.23.7` |
