@@ -91,10 +91,10 @@ output before pasting it into a doc.
 
 | Name            | Type     | Size    | Used | Content                 | Notes                            |
 | --------------- | -------- | ------- | ---- | ----------------------- | -------------------------------- |
-| local           | dir      | 70 GB   | 35%  | ISOs, backups, snippets | `/var/lib/vz` (SSD)              |
-| local-lvm       | LVM-thin | 142 GB  | 28%  | VM/LXC disks            | `pve/data` thinpool (SSD)        |
+| local           | dir      | 70 GB   | 46%  | ISOs, backups, snippets | `/var/lib/vz` (SSD)              |
+| local-lvm       | LVM-thin | 142 GB  | 52%  | VM/LXC disks            | `pve/data` thinpool (SSD)        |
 | proxmox-storage | ZFS pool | 1.35 TB | <1%  | VM/LXC disks            | `storage/proxmox` (HDD mirror)   |
-| pbs-nwlab       | PBS      | 500 GB  | 6%   | backups                 | PBS @ 10.21.21.101 `home-backup` |
+| pbs-nwlab       | PBS      | 500 GB  | 9%   | backups                 | PBS @ 10.21.21.101 `home-backup` |
 
 **Disks** — `sda` (238.5 GB SSD): PVE boot, LVM (root + swap + thinpool). `sdb` + `sdc` (2× 2.7 TB):
 ZFS mirror pool `storage`, ONLINE. **`sdc` is USB** — ONLINE, 0 ZFS errors; last scrub 2026-10-01
@@ -106,11 +106,11 @@ sectors and its short self-tests fail with a read error at LBA 103760144. `sdb` 
 
 | Dataset              | Used    | Avail   | Quota  | Mountpoint            |
 | -------------------- | ------- | ------- | ------ | --------------------- |
-| storage              | 1.30 TB | 1.33 TB | none   | /storage              |
-| storage/homelab-sync | 173 GB  | 227 GB  | 400 GB | /storage/homelab-sync |
-| storage/pbs          | 29.7 GB | 470 GB  | 500 GB | /storage/pbs          |
-| storage/proxmox      | 24 KB   | 1.33 TB | none   | /storage/proxmox      |
-| storage/timemachine  | 1.09 TB | 1.33 TB | 2.5 TB | /timemachine          |
+| storage              | 1.30 TB | 1.34 TB | none   | /storage              |
+| storage/homelab-sync | 170 GB  | 230 GB  | 400 GB | /storage/homelab-sync |
+| storage/pbs          | 43.6 GB | 456 GB  | 500 GB | /storage/pbs          |
+| storage/proxmox      | 24 KB   | 1.34 TB | none   | /storage/proxmox      |
+| storage/timemachine  | 1.09 TB | 1.34 TB | 2.5 TB | /timemachine          |
 
 ### Guests
 
