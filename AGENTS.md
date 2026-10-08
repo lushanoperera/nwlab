@@ -78,7 +78,7 @@ output before pasting it into a doc.
 - **Hostname**: `thinkpad` (`thinkpad.nwdesigns.home.arpa`) · **IP**: `10.21.21.99` · **Web UI**: https://10.21.21.99:8006
 - **Location**: NWDesigns office
 - **PVE**: 9.2.21 (running kernel 7.0.14-14-pve; 7.0.2-6-pve + 6.17.13-21-pve retained as fallbacks)
-- **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz) · **RAM**: 15.5 GB dual-channel (~39% used)
+- **CPU**: Intel i5-6200U (2C/4T @ 2.30GHz) · **RAM**: 15.5 GB dual-channel (~67% used)
 - **SSH**: `ssh root@10.21.21.99`
 
 ### Network
